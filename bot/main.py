@@ -5,6 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from bot.alert_handler import router as alert_router
 from bot.dashboard_router import router as dashboard_router
 from bot.timeline import timeline_manager

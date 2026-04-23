@@ -41,8 +41,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @router.get("/health/cluster")
 async def get_cluster_health():
-    """Return real-time global health metrics for the dashboard."""
-    return await get_cluster_health_metrics()
+    reports = await get_cluster_health_metrics()
+    is_sim = any(r.get("simulation_mode", False) for r in reports)
+    return {
+        "simulation_mode": is_sim,
+        "environments": reports
+    }
 
 
 # ---------------------------------------------------------------------------

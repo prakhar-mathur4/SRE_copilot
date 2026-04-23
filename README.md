@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3670A0?style=flat&logo=python&logoColor=ffdd54)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 
-**SRE Copilot** is a Kubernetes-native, AI-assisted Incident Management platform. It transforms noisy alerts into actionable insights by automatically gathering cluster diagnostics, performing AI-driven Root Cause Analysis (RCA), and orchestrating incident response workflows.
+**SRE Copilot** is an AI-assisted Incident Management platform built for true multi-infrastructure scalability. It transforms noisy alerts into actionable insights by automatically gathering diagnostics across **Kubernetes clusters, Virtual Machines (via Prometheus), and Local Hosts**, performing AI-driven Root Cause Analysis (RCA), and orchestrating incident response workflows.
 
 ---
 
@@ -13,10 +13,11 @@
 
 | Feature | Description |
 | :--- | :--- |
+| **🌐 Multi-Infrastructure** | Pluggable Provider architecture to monitor Kubernetes, Prometheus VMs, and Local Host hardware simultaneously. |
 | **🕹️ Chaos Control** | Simulate node failures, CPU spikes, and memory leaks to test cluster resilience and Copilot response. |
 | **📊 Industrial Command Center** | A high-density, real-time dashboard powered by WebSockets for situational awareness. |
 | **🧠 AI-Driven RCA** | Leverages OpenAI GPT-4 to summarize logs and metrics into human-readable root cause hypotheses. |
-| **🔍 Auto-Diagnostics** | Automatically fetches logs, pod statuses, and namespace events via the Kubernetes API. |
+| **🔍 Auto-Diagnostics** | Automatically fetches logs, pod statuses, and system metrics from the active infrastructure provider. |
 | **🛠️ Runbook Automation** | Maps incidents to organizational runbooks with a secure "CONFIRM" approval flow. |
 | **📝 Incident Timeline** | Tracks lifecycle state transitions and generates comprehensive Markdown post-mortems. |
 | **📢 Multi-Channel Alerts** | Seamless integration with MS Teams (and mock fallbacks) for instant notifications. |
@@ -57,9 +58,18 @@
 ## 🚀 Quick Start (Local)
 
 ### 1. Prerequisites
-- Docker & [Minikube](https://minikube.sigs.k8s.io/docs/start/)
+- Docker & [Minikube](https://minikube.sigs.k8s.io/docs/start/) (if using Kubernetes features)
 - `kubectl` CLI
+- Python 3.11+
 - OpenAI API Key
+
+### 2. Environment Configuration
+Create a `.env` file in the root directory:
+```env
+OPENAI_API_KEY=your_key_here
+PROMETHEUS_URL=http://localhost:9090  # Optional, for VM monitoring
+MONITORED_SERVICES=nginx,python,node,uvicorn  # Optional, comma-separated local processes to monitor
+```
 
 ### 2. Environment Setup
 ```bash

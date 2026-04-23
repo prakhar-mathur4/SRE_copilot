@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-http://localhost:9090}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - .env
+    # For a VM setup without K8s, we mock or use actual Prometheus.
+    # Note: If running on a VM without K8s, K8s diagnostics will gracefully degrade to mocked data
+    # or failover to Prometheus if alert is instance-based.
+
+  # Frontend will connect to bot running on 8000.
+  # For production, we'd normally compile the frontend and serve it from the bot or Nginx,
+  # but for compose, we can run the dev server or serve statically.
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000

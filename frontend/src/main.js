@@ -8,11 +8,7 @@ const state = {
     view: 'active', // 'active', 'control', 'archive'
     incidents: [],
     selectedIncidentId: null,
-    clusterHealth: {
-        cpu: 0,
-        memory: 0,
-        status: 'online'
-    },
+    environments: [],
     wsConnected: false,
     chaosScenarios: [],
     isSimulationMode: false,
@@ -21,7 +17,8 @@ const state = {
     podFilters: {
         namespace: 'all',
         cluster: 'minikube'
-    }
+    },
+    activeIncidentsFilter: 'all'
 }
 
 const API_BASE = 'http://localhost:8000/api/v1'
@@ -55,18 +52,12 @@ async function updateHealth() {
     try {
         const res = await fetch(`${API_BASE}/health/cluster`);
         const data = await res.json();
-        state.clusterHealth = {
-            cpu: data.cpu_usage,
-            memory: data.memory_usage,
-            status: data.status,
-            nodesOnline: data.nodes_online,
-            nodesTotal: data.nodes_total
-        };
+        state.environments = data.environments || [];
         state.isSimulationMode = data.simulation_mode || false;
         renderHealthPane();
         renderHeader();
     } catch (e) {
-        state.clusterHealth.status = 'offline';
+        state.environments = [];
         renderHealthPane();
     }
 }
@@ -147,7 +138,7 @@ function switchView(view, incidentId = null) {
         view === 'active' ? 'Active Incidents' : 
         view === 'control' ? 'Incident Control Room' : 
         view === 'chaos' ? 'Chaos Engineering Engine' : 
-        view === 'pods' ? 'Pod Inventory & Management' : 'Post-Mortem Archive';
+        view === 'pods' ? 'Resource Inventory & Management' : 'Post-Mortem Archive';
     
     render();
 }
@@ -196,49 +187,89 @@ function renderHealthPane() {
     const pane = document.getElementById('health-pane');
     if (!pane) return;
 
+    if (!state.environments || state.environments.length === 0) {
+        pane.innerHTML = `
+            <div class="pane h-full flex flex-col">
+                <div class="pane-header">Global Infrastructure Health</div>
+                <div class="p-4 flex-grow flex items-center justify-center text-muted italic text-sm">
+                    No environments connected.
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     pane.innerHTML = `
         <div class="pane h-full flex flex-col">
-            <div class="pane-header">Global Cluster Health</div>
-            <div class="p-4 flex flex-col gap-6">
-                <div>
-                    <div class="flex justify-between text-[10px] mb-1 uppercase text-muted font-bold">
-                        <span>CPU Usage</span>
-                        <span class="text-text">${state.clusterHealth.cpu}%</span>
+            <div class="pane-header">Global Infrastructure Health</div>
+            <div class="p-4 flex flex-col gap-6 overflow-y-auto">
+                ${state.environments.map(env => `
+                    <div class="border border-surface-hover rounded-sm p-3 bg-surface/50">
+                        <div class="text-[11px] uppercase font-bold text-primary mb-3 flex items-center justify-between">
+                            <span>${env.name || 'Unknown Environment'}</span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full ${env.status === 'healthy' || env.status === 'online' ? 'bg-alert-green' : env.status === 'degraded' ? 'bg-alert-orange' : 'bg-alert-red'}"></span>
+                                <span class="text-muted text-[9px]">${env.status || 'unknown'}</span>
+                            </span>
+                        </div>
+                        
+                        <div class="flex flex-col gap-3">
+                            <div>
+                                <div class="flex justify-between text-[9px] mb-1 uppercase text-muted font-bold">
+                                    <span>CPU Usage</span>
+                                    <span class="text-text">${env.cpu_usage}%</span>
+                                </div>
+                                <div class="h-1 bg-surface-hover w-full rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary transition-all duration-500" style="width: ${env.cpu_usage}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="flex justify-between text-[9px] mb-1 uppercase text-muted font-bold">
+                                    <span>Memory Usage</span>
+                                    <span class="text-text">${env.memory_usage}%</span>
+                                </div>
+                                <div class="h-1 bg-surface-hover w-full rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary transition-all duration-500" style="width: ${env.memory_usage}%"></div>
+                                </div>
+                            </div>
+                            
+                            ${env.nodes_total > 0 ? `
+                                <div class="mt-2 flex items-center justify-between">
+                                    <span class="text-[9px] text-muted font-bold uppercase">Nodes Online</span>
+                                    <span class="text-[10px] font-mono">${env.nodes_online}/${env.nodes_total}</span>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
-                    <div class="h-1 bg-surface-hover w-full rounded-full overflow-hidden">
-                        <div class="h-full bg-primary transition-all duration-500" style="width: ${state.clusterHealth.cpu}%"></div>
-                    </div>
-                </div>
-                <div>
-                    <div class="flex justify-between text-[10px] mb-1 uppercase text-muted font-bold">
-                        <span>Memory Usage</span>
-                        <span class="text-text">${state.clusterHealth.memory}%</span>
-                    </div>
-                    <div class="h-1 bg-surface-hover w-full rounded-full overflow-hidden">
-                        <div class="h-full bg-primary transition-all duration-500" style="width: ${state.clusterHealth.memory}%"></div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-4 border-t border-surface-hover">
-                    <div class="text-[10px] text-muted font-bold uppercase mb-2">Node Status</div>
-                    <div class="flex gap-1">
-                        ${Array.from({ length: state.clusterHealth.nodesTotal || 0 }).map((_, i) => `
-                            <div class="w-3 h-3 ${i < state.clusterHealth.nodesOnline ? 'bg-alert-green/80 shadow-[0_0_4px_rgba(0,230,118,0.5)]' : 'bg-alert-red/80 shadow-[0_0_4px_rgba(255,23,68,0.5)]'} rounded-sm"></div>
-                        `).join('')}
-                    </div>
-                </div>
+                `).join('')}
             </div>
         </div>
     `;
 }
 
 function renderActiveIncidentsView(container) {
-    const active = state.incidents.filter(i => i.status !== 'resolved');
+    let active = state.incidents.filter(i => i.status !== 'resolved');
+    
+    // Get unique contexts for the filter dropdown
+    const uniqueContexts = [...new Set(active.map(i => i.context || 'N/A'))].sort();
+    
+    // Apply filter
+    if (state.activeIncidentsFilter !== 'all') {
+        active = active.filter(i => (i.context || 'N/A') === state.activeIncidentsFilter);
+    }
     
     const layout = document.createElement('div');
     layout.className = 'grid grid-cols-10 gap-4 h-full min-h-0';
     layout.innerHTML = `
         <div class="col-span-7 pane flex flex-col min-h-0">
-            <div class="pane-header">Firing Alerts (${active.length})</div>
+            <div class="pane-header flex justify-between items-center">
+                <span>Firing Alerts (${active.length})</span>
+                <select id="incident-context-filter" class="bg-background border border-surface-hover rounded-sm h-6 px-2 text-[10px] text-muted">
+                    <option value="all">All Contexts</option>
+                    ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
+                </select>
+            </div>
             <div class="flex-grow overflow-auto">
                 <table class="w-full text-left border-collapse">
                     <thead class="sticky top-0 bg-surface border-b border-surface-hover text-[10px] uppercase text-muted font-bold">
@@ -246,7 +277,7 @@ function renderActiveIncidentsView(container) {
                             <th class="p-3">ID</th>
                             <th class="p-3">Severity</th>
                             <th class="p-3">Alert Name</th>
-                            <th class="p-3">Namespace</th>
+                            <th class="p-3">Context</th>
                             <th class="p-3">Time</th>
                         </tr>
                     </thead>
@@ -270,11 +301,19 @@ function renderActiveIncidentsView(container) {
             <td class="p-3 font-mono text-[11px] text-muted">${inc.incident_id}</td>
             <td class="p-3"><span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span></td>
             <td class="p-3 font-bold">${inc.alert_name}</td>
-            <td class="p-3 font-medium text-muted">${inc.namespace}</td>
+            <td class="p-3 font-medium text-muted">${inc.context || 'N/A'}</td>
             <td class="p-3 text-muted">${new Date(inc.start_time).toLocaleTimeString()}</td>
         `;
         body.appendChild(row);
     });
+    
+    const filterDropdown = layout.querySelector('#incident-context-filter');
+    if (filterDropdown) {
+        filterDropdown.onchange = (e) => {
+            state.activeIncidentsFilter = e.target.value;
+            renderActiveIncidentsView(container);
+        };
+    }
     
     renderHealthPane();
 }
@@ -324,7 +363,7 @@ async function renderControlRoomView(container) {
                 <div class="pane-header">Diagnostic Logs</div>
                 <div class="terminal flex-grow inner-glow text-primary/80">
                     <div>[00:00:01] INITIALIZING K8S PROBE...</div>
-                    <div>[00:00:02] FETCHING PODS IN NAMESPACE ${inc.namespace}...</div>
+                    <div>[00:00:02] FETCHING DIAGNOSTICS FOR CONTEXT ${inc.context}...</div>
                     ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div>[${new Date(e.timestamp).toLocaleTimeString()}] ${e.description}</div>`).join('')}
                     <div class="animate-pulse">_</div>
                 </div>
@@ -337,7 +376,7 @@ async function renderControlRoomView(container) {
                         <div class="flex items-center justify-between mb-4">
                             <div>
                                 <div class="text-[10px] uppercase font-bold text-alert-orange mb-1">Recommended Action</div>
-                                <div class="text-sm font-bold">restart_${inc.namespace || 'app'}_pod.sh</div>
+                                <div class="text-sm font-bold">restart_target_resource.sh</div>
                             </div>
                             <button class="btn-primary bg-alert-orange hover:brightness-110" id="approve-runbook-btn">Approve</button>
                         </div>
@@ -348,7 +387,7 @@ async function renderControlRoomView(container) {
                              Action Successfully Executed
                         </div>
                         <div class="font-mono text-[10px] text-primary/60">
-                            stdout: Pod successfully restarted. 
+                            stdout: Action successfully triggered. 
                             stderr: none
                         </div>
                     `}
@@ -415,7 +454,7 @@ function renderArchiveView(container) {
                                 <span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span>
                                 <div>
                                     <h3 class="font-bold text-sm">${inc.alert_name}</h3>
-                                    <div class="text-[10px] text-muted uppercase font-bold mt-1">${inc.incident_id} • ${inc.namespace} • RESOLVED ${new Date(inc.last_updated).toLocaleDateString()}</div>
+                                    <div class="text-[10px] text-muted uppercase font-bold mt-1">${inc.incident_id} • ${inc.context || 'N/A'} • RESOLVED ${new Date(inc.last_updated).toLocaleDateString()}</div>
                                 </div>
                             </div>
                             <button class="btn-outline group-hover:border-primary group-hover:text-primary">View Report</button>
@@ -535,10 +574,10 @@ async function renderPodsView(container) {
     layout.innerHTML = `
         <div class="pane flex flex-col min-h-0">
             <div class="pane-header flex justify-between items-center">
-                <span>Pod Fleet Registry</span>
+                <span>Resource Registry</span>
                 <div class="flex gap-2">
                     <select id="ns-filter" class="bg-background border border-surface-hover rounded-sm h-6 px-2 text-[10px] text-muted">
-                        <option value="all">All Namespaces</option>
+                        <option value="all">All Contexts</option>
                         ${state.namespaces.map(ns => `<option value="${ns}" ${state.podFilters.namespace === ns ? 'selected' : ''}>${ns}</option>`).join('')}
                     </select>
                 </div>
@@ -547,8 +586,8 @@ async function renderPodsView(container) {
                 <table class="w-full text-left border-collapse">
                     <thead class="sticky top-0 bg-surface border-b border-surface-hover text-[10px] uppercase text-muted font-bold">
                         <tr>
-                            <th class="p-3">Pod Name</th>
-                            <th class="p-3">Namespace</th>
+                            <th class="p-3">Resource Name</th>
+                            <th class="p-3">Context</th>
                             <th class="p-3">Kind</th>
                             <th class="p-3">Node IP</th>
                             <th class="p-3">Status</th>
@@ -616,7 +655,7 @@ async function renderPodsView(container) {
     layout.querySelectorAll('.delete-pod-btn').forEach(btn => {
         btn.onclick = async () => {
             const { name, ns } = btn.dataset;
-            if (confirm(`Are you sure you want to delete pod ${name} in namespace ${ns}?`)) {
+            if (confirm(`Are you sure you want to delete resource ${name} in context ${ns}?`)) {
                 btn.disabled = true;
                 const res = await fetch(`${API_BASE}/pods/${ns}/${name}`, { method: 'DELETE' });
                 if (res.ok) {
@@ -637,7 +676,7 @@ async function showYamlModal(name, ns) {
     overlay.innerHTML = `
         <div class="pane w-full max-w-4xl h-full flex flex-col shadow-2xl">
             <div class="pane-header flex justify-between items-center">
-                <span>Pod Definition: ${name}</span>
+                <span>Resource Definition: ${name}</span>
                 <button id="close-modal" class="text-muted hover:text-text">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>

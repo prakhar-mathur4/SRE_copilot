@@ -19,7 +19,7 @@ class IncidentState(BaseModel):
     alert_name: str
     status: str
     severity: str
-    namespace: str
+    context: str
     start_time: datetime
     events: List[TimelineEvent] = []
     diagnostics_collected: bool = False
@@ -39,7 +39,7 @@ class TimelineManager:
     def _generate_incident_id(self, fingerprint: str) -> str:
         return f"inc-{fingerprint}"
 
-    def create_or_update_incident(self, fingerprint: str, alert_name: str, status: str, severity: str, namespace: str) -> IncidentState:
+    def create_or_update_incident(self, fingerprint: str, alert_name: str, status: str, severity: str, context: str) -> IncidentState:
         incident_id = self._generate_incident_id(fingerprint)
         now = datetime.utcnow()
         
@@ -50,7 +50,7 @@ class TimelineManager:
                 alert_name=alert_name,
                 status=status,
                 severity=severity,
-                namespace=namespace,
+                context=context,
                 start_time=now,
                 last_updated=now
             )
@@ -93,7 +93,7 @@ class TimelineManager:
             f"# Incident Post-Mortem: {incident.alert_name}",
             f"**Incident ID:** {incident.incident_id}",
             f"**Severity:** {incident.severity}",
-            f"**Namespace:** {incident.namespace}",
+            f"**Context:** {incident.context}",
             f"**Started:** {incident.start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}",
             f"**Resolved:** {incident.last_updated.strftime('%Y-%m-%d %H:%M:%S UTC')}",
             "",

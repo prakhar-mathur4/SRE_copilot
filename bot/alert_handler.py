@@ -17,7 +17,8 @@ router = APIRouter()
 async def process_alert_background(alert: AlertData):
     """Background processor for a single alert"""
     alert_name = alert.labels.get('alertname', 'Unknown')
-    namespace = alert.labels.get('namespace', 'default')
+    # Use namespace for K8s, fallback to instance or job for VMs
+    context = alert.labels.get('namespace') or alert.labels.get('instance') or alert.labels.get('job', 'default')
     severity = alert.labels.get('severity', 'warning')
     status = alert.status
     fingerprint = alert.fingerprint
@@ -28,7 +29,7 @@ async def process_alert_background(alert: AlertData):
         alert_name=alert_name,
         status=status,
         severity=severity,
-        namespace=namespace
+        context=context
     )
     incident_id = incident.incident_id
 
@@ -55,7 +56,7 @@ async def process_alert_background(alert: AlertData):
     timeline_manager.add_event(incident_id, "Starting diagnostics collection", "Diagnostics")
     await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Collecting diagnostics..."})
     
-    diagnostics = await collect_diagnostics(namespace, alert.labels)
+    diagnostics = await collect_diagnostics(context, alert.labels)
     incident.diagnostics_collected = True
     timeline_manager.add_event(incident_id, "Diagnostics collected successfully", "Diagnostics")
     await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Diagnostics collected."})
@@ -100,9 +101,9 @@ async def handle_alert(payload: AlertmanagerPayload, background_tasks: Backgroun
     
     for alert in payload.alerts:
         alert_name = alert.labels.get('alertname', 'Unknown')
-        namespace = alert.labels.get('namespace', 'N/A')
+        context = alert.labels.get('namespace') or alert.labels.get('instance') or alert.labels.get('job', 'N/A')
         severity = alert.labels.get('severity', 'none')
-        logger.info(f"Alert {alert.status}: {alert_name} (Severity: {severity}) in namespace: {namespace}")
+        logger.info(f"Alert {alert.status}: {alert_name} (Severity: {severity}) in context: {context}")
         
         # Dispatch background task for each alert
         background_tasks.add_task(process_alert_background, alert)

@@ -29,9 +29,11 @@ async def analyze_incident(alert: AlertData, diagnostics_payload: str) -> str:
     severity = alert.labels.get('severity', 'page')
     description = alert.annotations.get('description', 'No description provided')
     
+    infra_type = "Virtual Machine (VM)" if "instance" in alert.labels and "pod" not in alert.labels else "Kubernetes cluster"
+    
     prompt = f"""
-    You are an expert Google Site Reliability Engineer (SRE).
-    An incident has just occurred in the Kubernetes cluster.
+    You are an expert Site Reliability Engineer (SRE).
+    An incident has just occurred in the {infra_type}.
 
     Alert Details:
     - Name: {alert_name}
@@ -48,11 +50,11 @@ async def analyze_incident(alert: AlertData, diagnostics_payload: str) -> str:
     
     try:
         openai_client = get_openai_client()
-        logger.info(f"Sending prompt to LLM for RCA of {alert_name}")
+        logger.info(f"Sending prompt to LLM for RCA of {alert_name} on {infra_type}")
         response = await openai_client.chat.completions.create(
             model="gpt-4", # or gpt-3.5-turbo if cost is a concern
             messages=[
-                {"role": "system", "content": "You are a helpful and expert SRE AI assistant focusing on Kubernetes incidents."},
+                {"role": "system", "content": f"You are a helpful and expert SRE AI assistant focusing on {infra_type} incidents."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2, # Low temperature for more deterministic and factual responses
