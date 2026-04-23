@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-copilot
+  namespace: default
+  labels:
+    app: sre-copilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-copilot
+  template:
+    metadata:
+      labels:
+        app: sre-copilot
+    spec:
+      serviceAccountName: sre-copilot-sa
+      containers:
+        - name: sre-copilot
+          image: sre-copilot:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OPENAI_API_KEY
+              value: "YOUR_OPENAI_API_KEY_HERE" # Add your real key here or use a K8s Secret
+            - name: TEAMS_WEBHOOK_URL
+              value: "" # Empty for mock
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

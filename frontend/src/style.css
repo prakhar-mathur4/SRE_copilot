@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text font-body overflow-hidden;
+  }
+}
+
+@layer components {
+  .pane {
+    @apply bg-surface border border-surface-hover rounded-sm;
+  }
+
+  .pane-header {
+    @apply h-8 px-4 flex items-center border-b border-surface-hover font-heading text-xs font-bold uppercase tracking-wider;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-background font-bold text-xs px-4 h-8 rounded-sm hover:brightness-110 transition-all uppercase;
+  }
+
+  .btn-outline {
+    @apply border border-muted text-muted font-bold text-xs px-4 h-8 rounded-sm hover:text-text hover:border-text transition-all uppercase;
+  }
+
+  .badge {
+    @apply px-2 h-5 inline-flex items-center text-[10px] font-bold rounded-sm uppercase;
+  }
+
+  .badge-sev1 { @apply bg-alert-red text-black; }
+  .badge-sev2 { @apply bg-alert-orange text-black; }
+  .badge-sev3 { @apply bg-primary text-black; }
+
+  /* Custom terminal styles */
+  .terminal {
+    @apply bg-black font-mono text-[12px] p-4 overflow-y-auto;
+  }
+
+  /* Custom inner shadows for terminal/inputs */
+  .inner-glow {
+    box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.05);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-hover;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted;
+}
