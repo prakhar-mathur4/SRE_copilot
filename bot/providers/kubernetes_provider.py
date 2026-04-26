@@ -36,18 +36,16 @@ class KubernetesProvider(DiagnosticProvider):
     
     async def get_health_metrics(self) -> Dict[str, Any]:
         if not k8s_available:
-            import random
-            metrics = {
-                "cpu_usage": random.randint(10, 30),
-                "memory_usage": random.randint(20, 40),
+            return {
+                "cpu_usage": 0,
+                "memory_usage": 0,
                 "error_rate": 0.0,
-                "nodes_online": 1,
-                "nodes_total": 1,
-                "status": "healthy",
-                "name": "Kubernetes Cluster"
+                "nodes_online": 0,
+                "nodes_total": 0,
+                "status": "offline",
+                "name": "Kubernetes Cluster",
+                "simulation_mode": False
             }
-            from bot.chaos_manager import chaos_manager
-            return chaos_manager.apply_chaos(metrics)
 
         try:
             nodes = v1_api.list_node()
@@ -95,7 +93,7 @@ class KubernetesProvider(DiagnosticProvider):
         logger.info(f"Collecting K8s diagnostics for namespace: {namespace}")
         
         if not k8s_available:
-            return self._mock_diagnostics(namespace, alert_labels)
+            return "Infrastructure Error: Kubernetes API is currently unreachable. Diagnostics cannot be collected."
             
         diagnostics = []
         pod_name = alert_labels.get("pod")
@@ -142,34 +140,11 @@ class KubernetesProvider(DiagnosticProvider):
             
         return "\n".join(diagnostics)
 
-    def _mock_diagnostics(self, namespace: str, alert_labels: Dict[str, str]) -> str:
-        alert_name = alert_labels.get("alertname", "Unknown")
-        
-        if alert_name in ["HighMemoryUsage", "HighCPUUsage"]:
-            return (
-                "Mock Diagnostics:\n"
-                "Pod Status: Running\n"
-                "Event [Warning]: OOMKilled - container mem limit reached\n"
-                "Recent Logs:\n"
-                "FATAL: OutOfMemoryError: Java heap space\n"
-            )
-        elif alert_name == "HighErrorRate":
-            return (
-                "Mock Diagnostics:\n"
-                "Pod payment-service-58dc Status: Running\n"
-                "Pod payment-service-8x2b Status: CrashLoopBackOff\n"
-                "Event [Warning]: Back-off restarting failed container\n"
-                "Recent Logs:\n"
-                "Error: Connection refused to database at 10.0.x.x\n"
-            )
-        return f"Mock diagnostics: No specific issues found in mocked state for namespace {namespace}."
 
     async def list_resources(self, context: str = None) -> List[Dict[str, Any]]:
         namespace = context
         if not k8s_available:
-            return [
-                {"name": "mock-pod-1", "namespace": "default", "kind": "Deployment", "node_ip": "1.1.1.1", "status": "Running", "cpu_usage": "10m", "memory_usage": "50Mi", "restarts": 0, "age": "1h"}
-            ]
+            return []
 
         try:
             if namespace:

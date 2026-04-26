@@ -18,7 +18,11 @@ const state = {
         namespace: 'all',
         cluster: 'minikube'
     },
-    activeIncidentsFilter: 'all'
+    activeIncidentsFilter: 'all',
+    archiveFilters: {
+        search: '',
+        severity: 'all'
+    }
 }
 
 const API_BASE = 'http://localhost:8000/api/v1'
@@ -376,7 +380,7 @@ async function renderControlRoomView(container) {
                         <div class="flex items-center justify-between mb-4">
                             <div>
                                 <div class="text-[10px] uppercase font-bold text-alert-orange mb-1">Recommended Action</div>
-                                <div class="text-sm font-bold">restart_target_resource.sh</div>
+                                <div class="text-sm font-bold">${inc.recommended_runbook || 'restart_target_resource.sh'}</div>
                             </div>
                             <button class="btn-primary bg-alert-orange hover:brightness-110" id="approve-runbook-btn">Approve</button>
                         </div>
@@ -387,7 +391,7 @@ async function renderControlRoomView(container) {
                              Action Successfully Executed
                         </div>
                         <div class="font-mono text-[10px] text-primary/60">
-                            stdout: Action successfully triggered. 
+                            stdout: ${inc.runbook_action}
                             stderr: none
                         </div>
                     `}
@@ -430,7 +434,21 @@ async function renderControlRoomView(container) {
 }
 
 function renderArchiveView(container) {
-    const resolved = state.incidents.filter(i => i.status === 'resolved');
+    let resolved = state.incidents.filter(i => i.status === 'resolved');
+
+    // Apply Filters
+    if (state.archiveFilters.search) {
+        const q = state.archiveFilters.search.toLowerCase();
+        resolved = resolved.filter(i => 
+            i.alert_name.toLowerCase().includes(q) || 
+            i.incident_id.toLowerCase().includes(q) ||
+            (i.context || '').toLowerCase().includes(q)
+        );
+    }
+    
+    if (state.archiveFilters.severity !== 'all') {
+        resolved = resolved.filter(i => i.severity.toLowerCase() === state.archiveFilters.severity.toLowerCase());
+    }
 
     const layout = document.createElement('div');
     layout.className = 'flex flex-col gap-4 h-full min-h-0';
@@ -438,15 +456,15 @@ function renderArchiveView(container) {
         <div class="pane flex flex-col min-h-0">
             <div class="pane-header">Resolved Incidents Ledger</div>
             <div class="p-4 border-b border-surface-hover flex gap-4">
-                <input type="text" placeholder="Search incidents..." class="bg-background border border-surface-hover rounded-sm h-8 px-3 text-[12px] flex-grow focus:outline-none focus:border-primary">
-                <select class="bg-background border border-surface-hover rounded-sm h-8 px-3 text-[12px] text-muted">
-                    <option>All Severities</option>
-                    <option>Critical</option>
-                    <option>Warning</option>
+                <input type="text" id="archive-search" placeholder="Search incidents..." value="${state.archiveFilters.search}" class="bg-background border border-surface-hover rounded-sm h-8 px-3 text-[12px] flex-grow focus:outline-none focus:border-primary">
+                <select id="archive-sev-filter" class="bg-background border border-surface-hover rounded-sm h-8 px-3 text-[12px] text-muted">
+                    <option value="all" ${state.archiveFilters.severity === 'all' ? 'selected' : ''}>All Severities</option>
+                    <option value="critical" ${state.archiveFilters.severity === 'critical' ? 'selected' : ''}>Critical</option>
+                    <option value="warning" ${state.archiveFilters.severity === 'warning' ? 'selected' : ''}>Warning</option>
                 </select>
             </div>
             <div class="flex-grow overflow-auto p-4 flex flex-col gap-3">
-                ${resolved.length === 0 ? '<div class="text-center p-10 text-muted italic">No resolved incidents found.</div>' : ''}
+                ${resolved.length === 0 ? '<div class="text-center p-10 text-muted italic">No resolved incidents found matching criteria.</div>' : ''}
                 ${resolved.map(inc => `
                     <div class="pane hover:border-primary/50 transition-colors cursor-pointer group">
                         <div class="p-4 flex items-center justify-between">
@@ -457,7 +475,7 @@ function renderArchiveView(container) {
                                     <div class="text-[10px] text-muted uppercase font-bold mt-1">${inc.incident_id} • ${inc.context || 'N/A'} • RESOLVED ${new Date(inc.last_updated).toLocaleDateString()}</div>
                                 </div>
                             </div>
-                            <button class="btn-outline group-hover:border-primary group-hover:text-primary">View Report</button>
+                            <button class="btn-outline group-hover:border-primary group-hover:text-primary view-report-btn" data-id="${inc.incident_id}">View Report</button>
                         </div>
                     </div>
                 `).join('')}
@@ -465,6 +483,77 @@ function renderArchiveView(container) {
         </div>
     `;
     container.appendChild(layout);
+
+    // Search Logic
+    const searchInput = layout.querySelector('#archive-search');
+    searchInput.oninput = (e) => {
+        state.archiveFilters.search = e.target.value;
+        // Debounce would be better, but for now direct re-render
+        renderArchiveView(container);
+    };
+    searchInput.focus();
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+
+    // Filter Logic
+    layout.querySelector('#archive-sev-filter').onchange = (e) => {
+        state.archiveFilters.severity = e.target.value;
+        renderArchiveView(container);
+    };
+
+    // Report View Logic
+    layout.querySelectorAll('.view-report-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            showReportModal(btn.dataset.id);
+        };
+    });
+}
+
+async function showReportModal(incidentId) {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-8';
+    overlay.innerHTML = `
+        <div class="pane w-full max-w-4xl h-full flex flex-col shadow-2xl">
+            <div class="pane-header flex justify-between items-center">
+                <span>Incident Post-Mortem Report</span>
+                <button id="close-report-modal" class="text-muted hover:text-text">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="flex-grow overflow-auto p-10 bg-surface">
+                <div id="report-content" class="prose prose-invert prose-sm max-w-none">
+                    <div class="animate-pulse text-muted italic">Retrieving post-mortem artifacts...</div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-surface-hover flex justify-end">
+                <button id="close-report-btn" class="btn-outline">Close Ledger</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#close-report-modal').onclick = close;
+    overlay.querySelector('#close-report-btn').onclick = close;
+    
+    // Fetch and render
+    try {
+        const res = await fetch(`${API_BASE}/incidents/${incidentId}`);
+        const data = await res.json();
+        if (data.report) {
+            overlay.querySelector('#report-content').innerHTML = marked.parse(data.report);
+        } else {
+            overlay.querySelector('#report-content').innerHTML = `
+                <div class="p-10 border border-surface-hover rounded-sm text-center">
+                    <h3 class="text-lg font-bold mb-2">No Report Available</h3>
+                    <p class="text-muted text-sm">Post-mortem reports are automatically generated only for resolved incidents with High or Critical severity.</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        overlay.querySelector('#report-content').innerText = "Error loading report: " + e.message;
+    }
 }
 
 async function renderChaosView(container) {

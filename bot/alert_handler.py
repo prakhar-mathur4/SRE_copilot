@@ -10,6 +10,7 @@ from bot.ai_analysis import analyze_incident
 from bot.runbook_executor import execute_runbook
 from bot.teams_notifier import notify_teams, update_teams_message
 from bot.ws_manager import manager as ws_manager
+from bot.noise_reduction import noise_reducer
 
 logger = logging.getLogger("sre_copilot")
 router = APIRouter()
@@ -21,7 +22,9 @@ async def process_alert_background(alert: AlertData):
     context = alert.labels.get('namespace') or alert.labels.get('instance') or alert.labels.get('job', 'default')
     severity = alert.labels.get('severity', 'warning')
     status = alert.status
-    fingerprint = alert.fingerprint
+    # Use calculated fingerprint from noise reduction pipeline
+    from bot.noise_reduction import noise_reducer
+    fingerprint = noise_reducer.calculate_fingerprint(alert)
     
     # 1. Timeline tracking
     incident = timeline_manager.create_or_update_incident(
@@ -100,6 +103,11 @@ async def handle_alert(payload: AlertmanagerPayload, background_tasks: Backgroun
     logger.info(f"Received alert payload: status={payload.status}, alerts_count={len(payload.alerts)}")
     
     for alert in payload.alerts:
+        # Noise Reduction & Deduplication Pipeline
+        fingerprint = noise_reducer.process_incoming_alert(alert)
+        if not fingerprint:
+            continue
+            
         alert_name = alert.labels.get('alertname', 'Unknown')
         context = alert.labels.get('namespace') or alert.labels.get('instance') or alert.labels.get('job', 'N/A')
         severity = alert.labels.get('severity', 'none')

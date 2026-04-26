@@ -11,5 +11,6 @@ Group the generated User Stories into cohesive, loosely coupled, and independent
 - [x] Define Unit 5: Runbook Automation (`design-artifacts/05-runbook-automation.md`)
 - [x] Define Unit 6: Notification System (`design-artifacts/06-notification-system.md`)
 - [x] Define Unit 7: Incident Timeline System (`design-artifacts/07-incident-timeline-system.md`)
+- [x] Create High-Level Backend Architecture Document (`design-artifacts/backend_architecture.md`)
 - [x] Update `aidlc-docs/prompts.md` with the new Prompt 4.
 - [x] Await user approval before generating the actual design documents.

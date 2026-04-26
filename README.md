@@ -14,13 +14,12 @@
 | Feature | Description |
 | :--- | :--- |
 | **🌐 Multi-Infrastructure** | Pluggable Provider architecture to monitor Kubernetes, Prometheus VMs, and Local Host hardware simultaneously. |
-| **🕹️ Chaos Control** | Simulate node failures, CPU spikes, and memory leaks to test cluster resilience and Copilot response. |
-| **📊 Industrial Command Center** | A high-density, real-time dashboard powered by WebSockets for situational awareness. |
-| **🧠 AI-Driven RCA** | Leverages OpenAI GPT-4 to summarize logs and metrics into human-readable root cause hypotheses. |
-| **🔍 Auto-Diagnostics** | Automatically fetches logs, pod statuses, and system metrics from the active infrastructure provider. |
-| **🛠️ Runbook Automation** | Maps incidents to organizational runbooks with a secure "CONFIRM" approval flow. |
-| **📝 Incident Timeline** | Tracks lifecycle state transitions and generates comprehensive Markdown post-mortems. |
-| **📢 Multi-Channel Alerts** | Seamless integration with MS Teams (and mock fallbacks) for instant notifications. |
+- 🧠 **AI Root Cause Analysis**: Automated incident summaries and remediation suggestions using OpenAI.
+- 🏢 **Multi-Infrastructure Support**: Pluggable provider architecture for Kubernetes, Local VMs, and Prometheus.
+- 🛠️ **Runbook Automation**: Proposes and executes remediation scripts with human-in-the-loop approval.
+- 📊 **Industrial Dashboard**: Real-time cockpit showing firing alerts, cluster health, and a resource registry.
+- 🗂️ **Post-Mortem Archive**: Real-time search and filtering for resolved incidents with detailed Markdown reports.
+- 🧪 **Chaos Engineering**: Built-in failure simulation to test observability and response pipelines.
 
 ---
 
@@ -47,11 +46,11 @@
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python 3.11, FastAPI, Pydantic, Uvicorn, Kubernetes Python Client
-- **Frontend**: Vite, Vanilla JavaScript, Tailwind CSS, WebSockets
-- **AI**: OpenAI `gpt-4-turbo-preview` (Async API)
-- **Infrastructure**: Kubernetes (Minikube / EKS), Docker
-- **Observability**: Prometheus Alertmanager integration
+- **Backend**: Python 3.11+, FastAPI, Pydantic, Uvicorn, Kubernetes Python Client, `psutil`
+- **Frontend**: Vite, Vanilla JavaScript, Tailwind CSS, WebSockets, `marked`
+- **AI**: OpenAI `gpt-4-turbo` (Async API) or Mock Fallback
+- **Infrastructure**: Kubernetes (Minikube / EKS), Docker, Prometheus
+- **Messaging**: MS Teams (Adaptive Cards)
 
 ---
 

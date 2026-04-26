@@ -18,8 +18,9 @@ SRE Copilot has evolved from a Kubernetes-only incident bot into a **Multi-Infra
   MONITORED_SERVICES=nginx,python,node,uvicorn
   ```
 
-### 3. Prometheus Provider (`PrometheusProvider`)
-- **Purpose**: Executes PromQL queries against a central metrics datastore to fetch metrics for traditional VMs or remote infrastructure.
+### 3. Prometheus Provider (`PrometheusProvider`) [STUB]
+- **Purpose**: Designed to execute PromQL queries against a central metrics datastore to fetch metrics for traditional VMs or remote infrastructure.
+- **Current Status**: Implemented as a functional shell in the backend. Requires concrete PromQL query logic to be fully active.
 - **Context**: Configured via the `PROMETHEUS_URL` environment variable.
 
 ## Adding a Custom Provider

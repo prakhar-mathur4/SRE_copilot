@@ -1,93 +1,41 @@
-# SRE Copilot — Frontend Cockpit: Implementation Plan (v4 — Alignment-Reviewed)
+# SRE Copilot — Frontend Cockpit: Implementation Plan (v4 — Final Implementation)
 
-**Date:** 2026-03-17  
-**Status:** ✅ Ready for Execution  
-**Framework:** Next.js 14 (App Router, TypeScript, Tailwind CSS)
-
----
-
-## Alignment Summary
-
-All 6 User Stories and 8 Design Artifacts have been reviewed. The frontend plan is **aligned** on the core needs. The changes below incorporate discovered gaps and new requirements from the artifacts.
-
-### Alignment Matrix
-
-| User Story | Design Artifact | Frontend Plan Coverage | Gap / Addition |
-|---|---|---|---|
-| US01 — Incident Detection | DU1 Observability, DU2 Incident Bot | ✅ Dashboard shows all alerts | ➕ Add `alertname`, `pod` label display on card |
-| US02 — Teams Notification | DU6 Notification System | 🟡 Teams is separate channel | ➕ Add "Teams Notification Status" indicator on incident card |
-| US03 — Automated Diagnostics | DU3 Diagnostics Engine | ✅ `DiagnosticsPanel` planned | ➕ Show diagnostic source (pod-specific vs namespace events vs mocked) |
-| US04 — AI RCA | DU4 AI Analyzer | ✅ `RcaPanel` planned with Markdown | ➕ AI response must show "Summary", "Possible Root Causes", "Suggested Next Steps" sections (per US04 AC) |
-| US05 — Runbook Automation | DU5 Runbook Executor | ✅ `CommandPanel` planned | ➕ **Human approval required** (per US05 AC + DU5 rule) — "▶ Run" must show a confirmation modal before triggering |
-| US06 — Incident Timeline & Report | DU7 Timeline System | ✅ `Timeline` component planned | ➕ Post-mortem Markdown report view; only for High/Critical severity; 24h retention indicator |
+**Date:** 2026-04-26  
+**Status:** ✅ Implemented  
+**Framework:** Vite + Vanilla JavaScript (SPA), Tailwind CSS
 
 ---
 
-## Key Gaps Found & How They Are Addressed
+## Architecture (As Implemented)
 
-### 1. ➕ Human Approval Confirmation Modal (US05 + DU5)
-> *"We require human approval for all runbooks."*
+The frontend is a Single Page Application (SPA) built with Vite for speed and Vanilla JS for maximum control over DOM manipulations and WebSocket integrations.
 
-The `CommandPanel` "▶ Run" button **must show a confirmation modal** before POSTing to `/api/v1/runbook/trigger`. This is a hard requirement from US05. Added `<ConfirmModal>` component.
-
-### 2. ➕ Post-Mortem Report View (US06 + DU7)
-> *"The AI should summarize the entire event into a Markdown report."*
-> *"Reports only for High/Critical severity alerts."*
-
-Add a **Post-Mortem Report** section at the bottom of the Incident Detail page. When an incident is `resolved` and severity is `high` or `critical`, a `<PostMortemPanel>` renders the compiled Markdown report from the backend. For lower severity incidents, show a muted "Report not generated (severity: warning)".
-
-### 3. ➕ Teams Notification Status (US02 + DU6)
-> *"When an alert is resolved, a follow-up Resolved notification should be sent to the same thread."*
-
-Add a `TeamsStatusBadge` on each incident card: shows `Notified ✓` (green) or `Not configured` (muted) depending on whether `TEAMS_WEBHOOK_URL` is set. This surfaces in the UI so engineers know if Teams is active.
-
-### 4. ➕ AI Response Structure (US04)
-> *"The prompt must enforce a structured response: Summary, Possible Root Causes, Suggested Next Steps."*
-
-`RcaPanel` will render those specific sections with visual hierarchy — each section gets its own styled heading within the Markdown renderer.
-
-### 5. ➕ Pod Label Display (US01 / US03)
-> *"Parse alertname, severity, namespace, pod (if applicable)."*
-
-Incident cards and detail pages will display the `pod` label if present — currently missing from the plan.
-
----
-
-## Final Architecture (Updated)
-
+### Core Structure
 ```
 sre-copilot/
 └── frontend/
-    ├── .env.example                  # NEXT_PUBLIC_API_URL config
-    ├── .env.local                    # Local dev config (gitignored)
-    ├── app/
-    │   ├── layout.tsx                # Root layout (NavBar, font)
-    │   ├── page.tsx                  # Dashboard: incident grid + stats
-    │   ├── incidents/[id]/page.tsx   # Incident detail page
-    │   └── api/                      # Next.js route handlers → FastAPI proxy
-    │       ├── incidents/route.ts
-    │       ├── incidents/[id]/route.ts
-    │       ├── alerts/test/route.ts
-    │       └── runbook/trigger/route.ts
-    ├── components/
-    │   ├── IncidentCard.tsx          # Alert card with Teams badge + pod label
-    │   ├── SeverityBadge.tsx         # Coloured severity pill
-    │   ├── TeamsStatusBadge.tsx      # Teams notification status (US02) ← NEW
-    │   ├── StatsBar.tsx              # Active / Critical / Resolved counts
-    │   ├── HealthBadge.tsx           # Live /health endpoint badge
-    │   ├── RcaPanel.tsx              # Structured Markdown RCA (US04 sections)
-    │   ├── DiagnosticsPanel.tsx      # K8s diagnostics source-annotated code block
-    │   ├── CommandPanel.tsx          # Free-text + shell commands + Copy button
-    │   ├── ConfirmModal.tsx          # Human approval modal before Run (US05) ← NEW
-    │   ├── PostMortemPanel.tsx       # Markdown post-mortem report (US06) ← NEW
-    │   └── Timeline.tsx              # Chronological event trail
-    ├── lib/
-    │   ├── api.ts                    # Typed fetch helpers (NEXT_PUBLIC_API_URL)
-    │   └── utils.ts                  # parseCommands, formatDuration, severityColor
+    ├── index.html                    # Main entry point with Tailwind CDN
+    ├── src/
+    │   ├── main.js                   # Application logic & View rendering
+    │   ├── style.css                 # Custom styles & Tailwind components
+    │   └── assets/                   # Media & Icons
     ├── package.json
-    ├── tailwind.config.ts
-    └── next.config.ts
+    └── vite.config.js
 ```
+
+### Components & Views (Logic in `main.js`)
+- **Global State**: Managed via a reactive `state` object in `main.js`.
+- **WebSocket Manager**: Connects to `/api/v1/ws/alerts` for real-time updates.
+- **View Renderers**:
+    - `renderActiveIncidentsView`: The "Industrial Command Center" table.
+    - `renderControlRoomView`: The deep-dive triage room with RCA and Diagnostics.
+    - `renderArchiveView`: Filterable ledger of resolved incidents.
+    - `renderChaosView`: Simulation controls.
+    - `renderPodsView`: Resource Registry with metrics.
+- **UI Elements**:
+    - `showReportModal`: Renders post-mortem Markdown reports.
+    - `SeverityBadge`: Coloured pills for incident severity.
+    - `ConfirmModal`: Human-in-the-loop approval before runbook execution.
 
 ---
 

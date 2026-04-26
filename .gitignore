@@ -14,3 +14,10 @@ dist/
 
 # OS
 .DS_Store
+ 
+# Folder
+aidlc-docs/
+demo/
+agent/
+prompts/
+

@@ -10,7 +10,7 @@ import json
 from bot.timeline import timeline_manager
 from bot.alert_handler import process_alert_background
 from bot.models import AlertData
-from bot.runbook_executor import execute_runbook
+from bot.runbook_executor import execute_runbook, get_runbook_recommendation
 from bot.ws_manager import manager
 from bot.diagnostics import get_cluster_health_metrics, list_all_pods, get_pod_yaml, delete_pod
 from bot.chaos_manager import chaos_manager
@@ -99,7 +99,7 @@ async def list_incidents():
             "alert_name": incident.alert_name,
             "status": incident.status,
             "severity": incident.severity,
-            "namespace": incident.namespace,
+            "namespace": incident.context,
             "start_time": incident.start_time.isoformat(),
             "last_updated": incident.last_updated.isoformat(),
             "diagnostics_collected": incident.diagnostics_collected,
@@ -139,12 +139,17 @@ async def get_incident(incident_id: str):
     if incident.status == "resolved" and incident.severity.lower() in ["high", "critical", "page"]:
         report = timeline_manager.generate_report(incident_id)
 
+    # Dynamic runbook recommendation if not yet executed
+    recommendation = None
+    if not incident.runbook_executed:
+        recommendation = await get_runbook_recommendation(incident.alert_name, incident.rca_report or "")
+
     return {
         "incident_id": incident.incident_id,
         "alert_name": incident.alert_name,
         "status": incident.status,
         "severity": incident.severity,
-        "namespace": incident.namespace,
+        "namespace": incident.context,
         "start_time": incident.start_time.isoformat(),
         "last_updated": incident.last_updated.isoformat(),
         "diagnostics_collected": incident.diagnostics_collected,
@@ -152,6 +157,7 @@ async def get_incident(incident_id: str):
         "rca_report": incident.rca_report,
         "runbook_executed": incident.runbook_executed,
         "runbook_action": incident.runbook_action,
+        "recommended_runbook": recommendation,
         "events": events,
         "report": report,
     }
