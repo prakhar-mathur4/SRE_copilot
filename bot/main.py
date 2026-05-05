@@ -23,6 +23,8 @@ logger = logging.getLogger("sre_copilot")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up SRE Copilot Bot...")
+    from bot.providers import init_providers
+    init_providers()
     yield
     logger.info("Shutting down SRE Copilot Bot...")
     timeline_manager.cleanup()

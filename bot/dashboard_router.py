@@ -12,8 +12,11 @@ from bot.alert_handler import process_alert_background
 from bot.models import AlertData
 from bot.runbook_executor import execute_runbook, get_runbook_recommendation
 from bot.ws_manager import manager
+from bot.providers import registry
 from bot.diagnostics import get_cluster_health_metrics, list_all_pods, get_pod_yaml, delete_pod
 from bot.chaos_manager import chaos_manager
+from bot.noise_reduction import noise_reducer
+from bot.models import FilterRule, MaintenanceWindow
 
 logger = logging.getLogger("sre_copilot")
 router = APIRouter()
@@ -76,6 +79,7 @@ class TestAlertRequest(BaseModel):
     severity: str = "warning"
     fingerprint: str = "test-001"
     pod: Optional[str] = None
+    instance: Optional[str] = None
     description: Optional[str] = None
 
 
@@ -83,6 +87,47 @@ class RunbookTriggerRequest(BaseModel):
     incident_id: str
     alert_name: str
     rca_summary: str
+
+# ---------------------------------------------------------------------------
+# Filter Rules & Maintenance Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/filters")
+async def list_filters():
+    return noise_reducer.filter_rules
+
+@router.post("/filters")
+async def add_filter(rule: FilterRule):
+    noise_reducer.add_filter_rule(rule)
+    return {"success": True}
+
+@router.delete("/filters/{name}")
+async def delete_filter(name: str):
+    success = noise_reducer.remove_filter_rule(name)
+    return {"success": success}
+
+@router.get("/maintenance")
+async def list_maintenance():
+    return noise_reducer.maintenance_windows
+
+@router.post("/maintenance")
+async def add_maintenance(window: MaintenanceWindow):
+    noise_reducer.add_maintenance_window(window)
+    return {"success": True}
+
+@router.delete("/maintenance/{id}")
+async def delete_maintenance(id: str):
+    success = noise_reducer.remove_maintenance_window(id)
+    return {"success": success}
+
+class CeleEvaluateRequest(BaseModel):
+    expression: str
+    alert: AlertData
+
+@router.post("/cel/evaluate")
+async def evaluate_cel_expression(payload: CeleEvaluateRequest):
+    result = noise_reducer.evaluate_cel(payload.expression, payload.alert)
+    return {"result": result}
 
 
 # ---------------------------------------------------------------------------
@@ -155,12 +200,33 @@ async def get_incident(incident_id: str):
         "diagnostics_collected": incident.diagnostics_collected,
         "rca_completed": incident.rca_completed,
         "rca_report": incident.rca_report,
+        "raw_diagnostics": incident.raw_diagnostics,
         "runbook_executed": incident.runbook_executed,
         "runbook_action": incident.runbook_action,
         "recommended_runbook": recommendation,
         "events": events,
         "report": report,
     }
+
+@router.post("/incidents/{incident_id}/resolve")
+async def resolve_incident_manually(incident_id: str):
+    """Manually mark an incident as resolved from the UI."""
+    incident = timeline_manager.incidents.get(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    
+    incident.status = "resolved"
+    timeline_manager.add_event(incident_id, "Incident manually resolved via Dashboard", "Operator")
+    
+    # Broadcast the resolution
+    await manager.broadcast({
+        "type": "INCIDENT_UPDATE",
+        "incident_id": incident_id,
+        "status": "resolved",
+        "alert_name": incident.alert_name
+    })
+    
+    return {"success": True, "incident_id": incident_id}
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +243,8 @@ async def fire_test_alert(payload: TestAlertRequest, background_tasks: Backgroun
     }
     if payload.pod:
         labels["pod"] = payload.pod
+    if payload.instance:
+        labels["instance"] = payload.instance
 
     alert = AlertData(
         status="firing",
@@ -236,4 +304,99 @@ async def remove_pod(namespace: str, pod_name: str):
     success = await delete_pod(pod_name, namespace)
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to delete pod {pod_name}")
+    return {"success": True}
+
+# ---------------------------------------------------------------------------
+# Settings & Connectors Registry
+# ---------------------------------------------------------------------------
+
+@router.get("/health/timeseries/{provider_id}")
+async def get_provider_timeseries(provider_id: str):
+    """Get 2-hour historical time series data for a specific provider."""
+    provider = registry.get_provider(provider_id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found or offline")
+    try:
+        data = await provider.get_time_series()
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching time series for {provider_id}: {e}")
+        return {"error": str(e)}
+
+@router.get("/settings")
+async def get_settings():
+    """Return environment variables and registered connectors."""
+    import os
+    return {
+        "env": {
+            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+            "TEAMS_WEBHOOK_URL": os.getenv("TEAMS_WEBHOOK_URL", "")
+        },
+        "connectors": await registry.list_providers()
+    }
+
+@router.post("/settings/env")
+async def update_env_settings(payload: dict):
+    """Update primary environment variables in .env."""
+    import os
+    env_path = os.path.join(os.getcwd(), ".env")
+    
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            lines = f.readlines()
+            
+    new_lines = []
+    updated_keys = set()
+    
+    for line in lines:
+        if "=" in line:
+            key = line.split("=")[0].strip()
+            if key in payload:
+                new_lines.append(f"{key}={payload[key]}\n")
+                updated_keys.add(key)
+                os.environ[key] = str(payload[key])
+            else:
+                new_lines.append(line)
+        else:
+            new_lines.append(line)
+            
+    for key, value in payload.items():
+        if key not in updated_keys:
+            new_lines.append(f"{key}={value}\n")
+            os.environ[key] = str(value)
+            
+    with open(env_path, "w") as f:
+        f.writelines(new_lines)
+        
+    return {"success": True}
+
+@router.post("/connectors")
+async def add_connector(payload: dict):
+    """Add a new infrastructure connector to the registry."""
+    configs = await registry.list_providers()
+    
+    # Generate ID if not present
+    if "id" not in payload:
+        import uuid
+        payload["id"] = f"{payload['type']}-{str(uuid.uuid4())[:8]}"
+        
+    configs.append(payload)
+    
+    with open(registry.config_path, "w") as f:
+        json.dump(configs, f, indent=2)
+        
+    registry.load_connectors()
+    return {"success": True, "connector": payload}
+
+@router.delete("/connectors/{connector_id}")
+async def delete_connector(connector_id: str):
+    """Remove a connector from the registry."""
+    configs = await registry.list_providers()
+    new_configs = [c for c in configs if c["id"] != connector_id]
+    
+    with open(registry.config_path, "w") as f:
+        json.dump(new_configs, f, indent=2)
+        
+    registry.load_connectors()
     return {"success": True}

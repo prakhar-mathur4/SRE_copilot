@@ -59,12 +59,34 @@ async def process_alert_background(alert: AlertData):
     timeline_manager.add_event(incident_id, "Starting diagnostics collection", "Diagnostics")
     await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Collecting diagnostics..."})
     
-    diagnostics = await collect_diagnostics(context, alert.labels)
-    incident.diagnostics_collected = True
-    timeline_manager.add_event(incident_id, "Diagnostics collected successfully", "Diagnostics")
-    await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Diagnostics collected."})
+    try:
+        diagnostics = await collect_diagnostics(context, alert.labels)
+        
+        # Check if diagnostics actually returned real data
+        if not diagnostics or "unreachable" in diagnostics.lower() or "error" in diagnostics.lower() or "failed" in diagnostics.lower():
+            raise Exception(diagnostics or "Infrastructure unreachable")
+            
+        incident.diagnostics_collected = True
+        incident.raw_diagnostics = diagnostics
+        timeline_manager.add_event(incident_id, "Diagnostics collected successfully", "Diagnostics")
+        await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Diagnostics collected."})
+    except Exception as e:
+        error_msg = str(e)
+        incident.diagnostics_failed = True
+        incident.diagnostics_error = error_msg
+        timeline_manager.add_event(incident_id, f"CRITICAL: Diagnostics failed - {error_msg}", "Diagnostics")
+        await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Pipeline Failure: Infrastructure unreachable."})
+        await update_teams_message(incident_id, alert, "Link Failure", f"Monitoring pipeline could not reach the target: {error_msg}")
+        return # STOP THE PIPELINE - No false data
     
-    # 4. AI RCA
+    # 4. AI RCA (Only for real incidents, or if specifically requested)
+    is_probe = "ConnectivityProbe" in alert_name
+    
+    if is_probe:
+        timeline_manager.add_event(incident_id, "Connectivity verified successfully. Probe complete.", "System")
+        await update_teams_message(incident_id, alert, "Probe Success", "Infrastructure is connected and telemetry is flowing correctly.")
+        return # PROBE COMPLETE - Skip AI/Runbooks for pure connectivity tests
+        
     timeline_manager.add_event(incident_id, "Starting AI Root Cause Analysis", "AI Engine")
     await ws_manager.broadcast({"type": "EVENT_ADDED", "incident_id": incident_id, "message": "Analyzing root cause..."})
     

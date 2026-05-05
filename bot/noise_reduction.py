@@ -29,8 +29,18 @@ class NoiseReducer:
     def add_filter_rule(self, rule: FilterRule):
         self.filter_rules.append(rule)
         
+    def remove_filter_rule(self, name: str) -> bool:
+        initial_len = len(self.filter_rules)
+        self.filter_rules = [r for r in self.filter_rules if r.name != name]
+        return len(self.filter_rules) < initial_len
+
     def add_maintenance_window(self, window: MaintenanceWindow):
         self.maintenance_windows.append(window)
+
+    def remove_maintenance_window(self, window_id: str) -> bool:
+        initial_len = len(self.maintenance_windows)
+        self.maintenance_windows = [w for w in self.maintenance_windows if w.id != window_id]
+        return len(self.maintenance_windows) < initial_len
 
     def calculate_fingerprint(self, alert: AlertData, ignore_fields: List[str] = None) -> str:
         """

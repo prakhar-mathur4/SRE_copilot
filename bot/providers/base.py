@@ -28,3 +28,12 @@ class DiagnosticProvider(ABC):
         For VM: List instances/services.
         """
         pass
+
+    @abstractmethod
+    async def get_time_series(self) -> Dict[str, Any]:
+        """
+        Fetch historical time series data (e.g., CPU, Memory) for the last 2 hours.
+        Should return {"cpu": [(timestamp, value), ...], "memory": [(timestamp, value), ...]}
+        """
+        pass
+

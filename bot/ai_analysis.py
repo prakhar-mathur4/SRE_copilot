@@ -21,15 +21,41 @@ async def analyze_incident(alert: AlertData, diagnostics_payload: str) -> str:
     Sends the incident details and diagnostics to the LLM to perform Root Cause Analysis.
     Returns the LLM's assessment and recommended actions.
     """
-    if not os.environ.get("OPENAI_API_KEY"):
-        logger.warning("OPENAI_API_KEY not set. Falling back to mock AI summary.")
-        return _mock_ai_analysis(alert, diagnostics_payload)
-        
     alert_name = alert.labels.get('alertname', 'Unknown Alert')
     severity = alert.labels.get('severity', 'page')
     description = alert.annotations.get('description', 'No description provided')
     
     infra_type = "Virtual Machine (VM)" if "instance" in alert.labels and "pod" not in alert.labels else "Kubernetes cluster"
+
+    if "SIMULATED_INCIDENT" in alert_name:
+        return f"""
+### 🔎 Root Cause Analysis (Simulation)
+The diagnostic engine has identified a **Thread Pool Exhaustion** in the `auth-service` running on the local node. 
+
+**Evidence**:
+- **CPU Spikes**: Consistent 85% load across all cores.
+- **Connection Leak**: `lsof` indicates 450+ established TCP connections to the local database, exceeding the 100-connection limit.
+- **Latency**: API response times have degraded from 40ms to 1200ms.
+
+### 💡 Hypothesis
+A recent deployment introduced a database client that doesn't properly close connections in the `/validate-token` endpoint, leading to resource starvation.
+
+### ✅ Recommended Remediation
+1.  **Immediate**: Flush established connections to the auth-service.
+2.  **Long-term**: Review connection pool settings in the `application.yaml` and ensure `try-with-resources` blocks are implemented.
+"""
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        logger.warning("OPENAI_API_KEY not set. Reporting connectivity without AI RCA.")
+        return f"""
+### 🟢 Connectivity Verified
+**Status**: Successfully connected to {infra_type}.
+
+### ⚠️ AI Analysis Unavailable
+The AI Engine is currently disconnected. To enable Root Cause Analysis and automated mitigation suggestions, please configure the `OPENAI_API_KEY` in the system environment.
+
+**Telemetry gathered**: {len(diagnostics_payload)} characters of raw data available in the telemetry tab.
+"""
     
     prompt = f"""
     You are an expert Site Reliability Engineer (SRE).
