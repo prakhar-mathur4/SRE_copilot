@@ -1,13 +1,36 @@
 import { state, updateState, notify } from '../utils/state';
 import { resolveIncident, fetchIncidents } from '../utils/api';
 
+function relativeTime(isoString) {
+    // Append Z so the browser always parses as UTC, matching the server clock
+    const date = new Date(isoString.endsWith('Z') ? isoString : isoString + 'Z');
+    const diffMs = Date.now() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60)  return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60)  return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24)   return `${diffHr}h ${diffMin % 60}m ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d ${diffHr % 24}h ago`;
+}
+
+function renderContext(raw) {
+    if (!raw || raw === 'unknown') return '<span class="text-muted/50 italic">unknown</span>';
+    const idx = raw.indexOf(':');
+    if (idx === -1) return `<span>${raw}</span>`;
+    const key = raw.slice(0, idx);
+    const val = raw.slice(idx + 1);
+    return `<span class="text-[9px] font-mono text-muted/60 uppercase">${key}:</span><span class="ml-1">${val}</span>`;
+}
+
 export function renderActiveIncidentsView(container) {
     let active = state.incidents.filter(i => i.status !== 'resolved');
-    
-    const uniqueContexts = [...new Set(active.map(i => i.context || 'N/A'))].sort();
-    
+
+    const uniqueContexts = [...new Set(active.map(i => i.namespace || 'unknown'))].sort();
+
     if (state.activeIncidentsFilter !== 'all') {
-        active = active.filter(i => (i.context || 'N/A') === state.activeIncidentsFilter);
+        active = active.filter(i => (i.namespace || 'unknown') === state.activeIncidentsFilter);
     }
     
     container.innerHTML = `
@@ -90,8 +113,8 @@ export function renderActiveIncidentsView(container) {
             <td class="p-4 font-mono text-[11px] text-muted">${inc.incident_id.slice(0, 8)}</td>
             <td class="p-4"><span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span></td>
             <td class="p-4 font-bold text-text-light dark:text-text-dark">${inc.alert_name}</td>
-            <td class="p-4 font-medium text-muted">${inc.context || 'N/A'}</td>
-            <td class="p-4 text-muted text-[11px]">${new Date(inc.start_time).toLocaleTimeString()}</td>
+            <td class="p-4 font-medium text-muted">${renderContext(inc.namespace)}</td>
+            <td class="p-4 text-muted text-[11px]" title="${new Date(inc.start_time.endsWith('Z') ? inc.start_time : inc.start_time + 'Z').toLocaleString()}">${relativeTime(inc.start_time)}</td>
             <td class="p-4 text-center">
                 <button class="resolve-btn px-3 py-1 bg-alert-green hover:bg-green-600 text-white text-[9px] font-bold uppercase rounded transition-colors" data-id="${inc.incident_id}">Resolve</button>
             </td>

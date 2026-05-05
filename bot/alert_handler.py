@@ -15,11 +15,32 @@ from bot.noise_reduction import noise_reducer
 logger = logging.getLogger("sre_copilot")
 router = APIRouter()
 
+# Priority-ordered labels to use as context, from most to least specific
+_CONTEXT_LABEL_PRIORITY = [
+    "namespace",    # K8s namespace
+    "instance",     # Prometheus target (host:port)
+    "service",      # Service name
+    "job",          # Prometheus job
+    "cluster",      # Cluster name (multi-cluster setups)
+    "region",       # Cloud region
+    "host",         # Hostname
+    "pod",          # K8s pod
+    "container",    # K8s container
+    "alertmanager_source",  # Which Alertmanager sent it
+]
+
+def _resolve_context(labels: dict) -> str:
+    """Pick the most meaningful context label from an alert's label set."""
+    for key in _CONTEXT_LABEL_PRIORITY:
+        value = labels.get(key, "").strip()
+        if value:
+            return f"{key}:{value}"
+    return "unknown"
+
 async def process_alert_background(alert: AlertData):
     """Background processor for a single alert"""
     alert_name = alert.labels.get('alertname', 'Unknown')
-    # Use namespace for K8s, fallback to instance or job for VMs
-    context = alert.labels.get('namespace') or alert.labels.get('instance') or alert.labels.get('job', 'default')
+    context = _resolve_context(alert.labels)
     severity = alert.labels.get('severity', 'warning')
     status = alert.status
     # Use calculated fingerprint from noise reduction pipeline
@@ -131,7 +152,7 @@ async def handle_alert(payload: AlertmanagerPayload, background_tasks: Backgroun
             continue
             
         alert_name = alert.labels.get('alertname', 'Unknown')
-        context = alert.labels.get('namespace') or alert.labels.get('instance') or alert.labels.get('job', 'N/A')
+        context = _resolve_context(alert.labels)
         severity = alert.labels.get('severity', 'none')
         logger.info(f"Alert {alert.status}: {alert_name} (Severity: {severity}) in context: {context}")
         
