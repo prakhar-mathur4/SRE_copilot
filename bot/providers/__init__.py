@@ -7,6 +7,7 @@ from bot.providers.base import DiagnosticProvider
 from bot.providers.kubernetes_provider import KubernetesProvider
 from bot.providers.prometheus_provider import PrometheusProvider
 from bot.providers.local_machine_provider import LocalMachineProvider
+from bot.providers.alertmanager_provider import AlertmanagerProvider
 
 logger = logging.getLogger("sre_copilot")
 
@@ -42,6 +43,8 @@ class ProviderRegistry:
                         self._providers[p_id] = PrometheusProvider(prometheus_url=p_url)
                     elif p_type == "local_machine":
                         self._providers[p_id] = LocalMachineProvider()
+                    elif p_type == "alertmanager":
+                        self._providers[p_id] = AlertmanagerProvider(url=p_url, name=cfg.get("name", "Alertmanager"))
                     
                     logger.info(f"Initialized provider: {p_id} ({p_type})")
                 except Exception as e:
@@ -64,7 +67,7 @@ class ProviderRegistry:
                     # Quick status check
                     if p.provider_type == "local_machine":
                         cfg["status"] = "online"
-                    elif p.provider_type == "prometheus":
+                    elif p.provider_type in ("prometheus", "alertmanager"):
                         health = await p.get_health_metrics()
                         cfg["status"] = health["status"]
                     elif p.provider_type == "kubernetes":
