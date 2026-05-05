@@ -1,5 +1,4 @@
-import { state, updateState, notify } from '../utils/state';
-import { resolveIncident, fetchIncidents } from '../utils/api';
+import { state, updateState } from '../utils/state';
 
 function relativeTime(isoString) {
     // Append Z so the browser always parses as UTC, matching the server clock
@@ -24,6 +23,116 @@ function renderContext(raw) {
     return `<span class="text-[9px] font-mono text-muted/60 uppercase">${key}:</span><span class="ml-1">${val}</span>`;
 }
 
+function severityColor(sev) {
+    switch ((sev || '').toLowerCase()) {
+        case 'critical': case 'page': return 'bg-red-500/10 text-red-400 border-red-500/30';
+        case 'warning':  return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+        default:         return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+    }
+}
+
+function openQuickView(inc) {
+    // Remove any existing modal first
+    document.getElementById('quickview-modal')?.remove();
+
+    const labels      = inc.labels      || {};
+    const annotations = inc.annotations || {};
+
+    const renderKV = (obj) => {
+        const entries = Object.entries(obj);
+        if (entries.length === 0) return '<span class="text-muted/50 italic text-xs">none</span>';
+        return entries.map(([k, v]) => `
+            <div class="flex gap-3 py-1.5 border-b border-surface-hover-light/50 dark:border-surface-hover-dark/50 last:border-0 min-w-0">
+                <span class="text-[10px] font-mono font-bold text-primary-light dark:text-primary-dark shrink-0 w-36 truncate" title="${k}">${k}</span>
+                <span class="text-[11px] text-text-light dark:text-text-dark break-all">${v}</span>
+            </div>`).join('');
+    };
+
+    const pipelineSteps = [
+        { label: 'Diagnostics', done: inc.diagnostics_collected },
+        { label: 'RCA',         done: inc.rca_completed },
+        { label: 'Runbook',     done: inc.runbook_executed },
+    ];
+
+    const modal = document.createElement('div');
+    modal.id = 'quickview-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4';
+    modal.innerHTML = `
+        <div class="pane w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+
+            <!-- Header -->
+            <div class="flex items-start justify-between gap-4 p-6 border-b border-surface-hover-light dark:border-surface-hover-dark shrink-0">
+                <div class="flex flex-col gap-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[9px] font-bold border px-2 py-0.5 rounded-full uppercase tracking-widest ${severityColor(inc.severity)}">${inc.severity}</span>
+                        <span class="text-[9px] font-mono text-muted">${inc.incident_id.slice(0, 16)}…</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-text-light dark:text-text-dark truncate">${inc.alert_name}</h2>
+                    <div class="flex gap-4 text-[10px] text-muted mt-0.5">
+                        <span>Started: <span class="text-text-light dark:text-text-dark">${relativeTime(inc.start_time)}</span></span>
+                        <span>Updated: <span class="text-text-light dark:text-text-dark">${relativeTime(inc.last_updated)}</span></span>
+                        <span>Events: <span class="text-text-light dark:text-text-dark">${inc.event_count}</span></span>
+                    </div>
+                </div>
+                <button id="qv-close" class="shrink-0 p-1.5 rounded-lg hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark text-muted hover:text-text-light dark:hover:text-text-dark transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <!-- Pipeline status strip -->
+            <div class="flex gap-0 shrink-0 border-b border-surface-hover-light dark:border-surface-hover-dark">
+                ${pipelineSteps.map(s => `
+                    <div class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[9px] font-bold uppercase tracking-widest ${s.done ? 'text-alert-green' : 'text-muted/50'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${s.done ? 'bg-alert-green' : 'bg-muted/30'}"></span>
+                        ${s.label}
+                    </div>`).join('<div class="w-px bg-surface-hover-light dark:bg-surface-hover-dark"></div>')}
+            </div>
+
+            <!-- Scrollable body -->
+            <div class="flex-grow overflow-y-auto p-6 flex flex-col gap-6">
+
+                <!-- Labels -->
+                <div>
+                    <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-3">Labels (${Object.keys(labels).length})</div>
+                    <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">
+                        ${renderKV(labels)}
+                    </div>
+                </div>
+
+                <!-- Annotations -->
+                <div>
+                    <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-3">Annotations (${Object.keys(annotations).length})</div>
+                    <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">
+                        ${renderKV(annotations)}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="shrink-0 px-6 py-4 border-t border-surface-hover-light dark:border-surface-hover-dark flex justify-between items-center">
+                <span class="text-[10px] text-muted">Click the row to open the full Control Room view</span>
+                <button id="qv-open-cr" class="px-4 py-2 bg-primary-light dark:bg-primary-dark text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity">Open Control Room →</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close handlers
+    modal.querySelector('#qv-close').onclick = () => modal.remove();
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.addEventListener('keydown', function onEsc(e) {
+        if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', onEsc); }
+    });
+
+    // Open Control Room
+    modal.querySelector('#qv-open-cr').onclick = () => {
+        modal.remove();
+        updateState({ view: 'control', selectedIncidentId: inc.incident_id });
+    };
+}
+
 export function renderActiveIncidentsView(container) {
     let active = state.incidents.filter(i => i.status !== 'resolved');
 
@@ -34,73 +143,30 @@ export function renderActiveIncidentsView(container) {
     }
     
     container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 h-full min-h-0">
-            <div class="md:col-span-8 pane flex flex-col min-h-0">
-                <div class="pane-header flex justify-between items-center">
-                    <span>Firing Alerts (${active.length})</span>
-                    <select id="incident-context-filter" class="bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-md h-7 px-3 text-[10px] text-muted focus:ring-1 ring-primary-light">
-                        <option value="all">All Contexts</option>
-                        ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="flex-grow overflow-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
-                            <tr>
-                                <th class="p-4">ID</th>
-                                <th class="p-4">Severity</th>
-                                <th class="p-4">Alert Name</th>
-                                <th class="p-4">Context</th>
-                                <th class="p-4">Time</th>
-                                <th class="p-4 text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="incidents-body">
-                            ${active.length === 0 ? `<tr><td colspan="6" class="p-16 text-center text-primary-light dark:text-primary-dark font-mono uppercase text-xs tracking-widest">No active incidents. Cluster healthy.</td></tr>` : ''}
-                        </tbody>
-                    </table>
-                </div>
+        <div class="h-full min-h-0 pane flex flex-col">
+            <div class="pane-header flex justify-between items-center">
+                <span>Firing Alerts (${active.length})</span>
+                <select id="incident-context-filter" class="bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-md h-7 px-3 text-[10px] text-muted focus:ring-1 ring-primary-light">
+                    <option value="all">All Contexts</option>
+                    ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
+                </select>
             </div>
-            
-            <div class="md:col-span-4 flex flex-col gap-6" id="health-pane-container">
-                <div class="pane flex-grow flex flex-col min-h-0">
-                    <div class="pane-header">Infrastucture Health</div>
-                    <div class="p-6 flex flex-col gap-6 overflow-y-auto">
-                        ${state.environments.length === 0 ? `<div class="text-center p-10 text-muted-light italic text-xs">No environments connected.</div>` : ''}
-                        ${state.environments.map(env => `
-                            <div class="p-4 rounded-lg bg-surface-hover-light/20 dark:bg-surface-hover-dark/10 border border-surface-hover-light dark:border-surface-hover-dark">
-                                <div class="text-[11px] uppercase font-bold text-primary-light dark:text-primary-dark mb-4 flex items-center justify-between">
-                                    <span>${env.name}</span>
-                                    <span class="flex items-center gap-1.5">
-                                        <span class="w-2 h-2 rounded-full ${env.status === 'healthy' || env.status === 'online' ? 'bg-alert-green' : env.status === 'degraded' ? 'bg-alert-orange' : 'bg-alert-red'}"></span>
-                                        <span class="text-muted text-[9px]">${env.status}</span>
-                                    </span>
-                                </div>
-                                
-                                <div class="space-y-4">
-                                    <div>
-                                        <div class="flex justify-between text-[9px] mb-1.5 uppercase text-muted font-bold">
-                                            <span>CPU Usage</span>
-                                            <span class="text-text-light dark:text-text-dark" id="incidents-cpu-text-${env.id}">${env.cpu_usage}%</span>
-                                        </div>
-                                        <div class="h-1.5 bg-surface-hover-light dark:bg-surface-hover-dark w-full rounded-full overflow-hidden">
-                                            <div class="h-full bg-primary-light dark:bg-primary-dark transition-all duration-700" id="incidents-cpu-bar-${env.id}" style="width: ${env.cpu_usage}%"></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-[9px] mb-1.5 uppercase text-muted font-bold">
-                                            <span>Memory</span>
-                                            <span class="text-text-light dark:text-text-dark" id="incidents-mem-text-${env.id}">${env.memory_usage}%</span>
-                                        </div>
-                                        <div class="h-1.5 bg-surface-hover-light dark:bg-surface-hover-dark w-full rounded-full overflow-hidden">
-                                            <div class="h-full bg-primary-light dark:bg-primary-dark transition-all duration-700" id="incidents-mem-bar-${env.id}" style="width: ${env.memory_usage}%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
+            <div class="flex-grow overflow-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
+                        <tr>
+                            <th class="p-4">ID</th>
+                            <th class="p-4">Severity</th>
+                            <th class="p-4">Alert Name</th>
+                            <th class="p-4">Context</th>
+                            <th class="p-4">Time</th>
+                            <th class="p-4 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incidents-body">
+                        ${active.length === 0 ? `<tr><td colspan="6" class="p-16 text-center text-primary-light dark:text-primary-dark font-mono uppercase text-xs tracking-widest">No active incidents. Cluster healthy.</td></tr>` : ''}
+                    </tbody>
+                </table>
             </div>
         </div>
     `;
@@ -116,7 +182,7 @@ export function renderActiveIncidentsView(container) {
             <td class="p-4 font-medium text-muted">${renderContext(inc.namespace)}</td>
             <td class="p-4 text-muted text-[11px]" title="${new Date(inc.start_time.endsWith('Z') ? inc.start_time : inc.start_time + 'Z').toLocaleString()}">${relativeTime(inc.start_time)}</td>
             <td class="p-4 text-center">
-                <button class="resolve-btn px-3 py-1 bg-alert-green hover:bg-green-600 text-white text-[9px] font-bold uppercase rounded transition-colors" data-id="${inc.incident_id}">Resolve</button>
+                <button class="quickview-btn px-3 py-1 bg-surface-hover-light dark:bg-surface-hover-dark hover:bg-primary-light/10 dark:hover:bg-primary-dark/20 border border-surface-hover-light dark:border-surface-hover-dark text-text-light dark:text-text-dark text-[9px] font-bold uppercase rounded transition-colors" data-id="${inc.incident_id}">View</button>
             </td>
         `;
         
@@ -130,26 +196,12 @@ export function renderActiveIncidentsView(container) {
         body.appendChild(row);
     });
 
-    // Resolve button logic
-    container.querySelectorAll('.resolve-btn').forEach(btn => {
-        btn.onclick = async (e) => {
+    // Quick View modal logic
+    container.querySelectorAll('.quickview-btn').forEach(btn => {
+        btn.onclick = (e) => {
             e.stopPropagation();
-            const id = btn.dataset.id;
-            btn.disabled = true;
-            btn.innerText = '...';
-            
-            try {
-                const res = await resolveIncident(id);
-                if (res.ok) {
-                    notify('Incident marked as resolved', 'success');
-                    await fetchIncidents();
-                } else {
-                    notify('Failed to resolve incident', 'error');
-                }
-            } catch (err) {
-                console.error(err);
-                notify('Network error during resolution', 'error');
-            }
+            const inc = state.incidents.find(i => i.incident_id === btn.dataset.id);
+            if (inc) openQuickView(inc);
         };
     });
 
@@ -158,25 +210,4 @@ export function renderActiveIncidentsView(container) {
         filter.onchange = (e) => updateState({ activeIncidentsFilter: e.target.value });
     }
 
-    // Subscribe to state updates for live health bars
-    import('../utils/state.js').then(({ subscribe }) => {
-        const unsub = subscribe((newState) => {
-            if (newState.view !== 'active') {
-                unsub(); // Cleanup subscription when navigating away
-                return;
-            }
-            // Update CPU and Memory bars smoothly
-            for (const env of newState.environments) {
-                const cpuText = document.getElementById(`incidents-cpu-text-${env.id}`);
-                const cpuBar = document.getElementById(`incidents-cpu-bar-${env.id}`);
-                const memText = document.getElementById(`incidents-mem-text-${env.id}`);
-                const memBar = document.getElementById(`incidents-mem-bar-${env.id}`);
-                
-                if (cpuText) cpuText.textContent = `${env.cpu_usage ?? 0}%`;
-                if (cpuBar) cpuBar.style.width = `${env.cpu_usage ?? 0}%`;
-                if (memText) memText.textContent = `${env.memory_usage ?? 0}%`;
-                if (memBar) memBar.style.width = `${env.memory_usage ?? 0}%`;
-            }
-        });
-    });
 }
