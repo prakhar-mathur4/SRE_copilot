@@ -92,6 +92,11 @@ class RunbookTriggerRequest(BaseModel):
 # Filter Rules & Maintenance Endpoints
 # ---------------------------------------------------------------------------
 
+@router.get("/noise/stats")
+async def get_noise_stats():
+    """Return live noise-reduction counters."""
+    return noise_reducer.get_stats()
+
 @router.get("/filters")
 async def list_filters():
     return noise_reducer.filter_rules
@@ -139,6 +144,8 @@ async def list_incidents():
     """Return all in-memory incidents, serialised to JSON-safe dicts."""
     result = []
     for incident in timeline_manager.incidents.values():
+        fingerprint = incident.incident_id[4:]  # strip "inc-" prefix
+        dedup_count = noise_reducer.dedup_details.get(fingerprint, {}).get("count", 0)
         result.append({
             "incident_id": incident.incident_id,
             "alert_name": incident.alert_name,
@@ -146,6 +153,7 @@ async def list_incidents():
             "severity": incident.severity,
             "namespace": incident.context,
             "start_time": incident.start_time.isoformat(),
+            "alert_starts_at": incident.alert_starts_at,
             "last_updated": incident.last_updated.isoformat(),
             "labels": incident.labels,
             "annotations": incident.annotations,
@@ -155,6 +163,7 @@ async def list_incidents():
             "runbook_executed": incident.runbook_executed,
             "runbook_action": incident.runbook_action,
             "event_count": len(incident.events),
+            "dedup_count": dedup_count,
         })
     # Sort newest first
     result.sort(key=lambda x: x["start_time"], reverse=True)
@@ -198,7 +207,10 @@ async def get_incident(incident_id: str):
         "severity": incident.severity,
         "namespace": incident.context,
         "start_time": incident.start_time.isoformat(),
+        "alert_starts_at": incident.alert_starts_at,
         "last_updated": incident.last_updated.isoformat(),
+        "labels": incident.labels,
+        "annotations": incident.annotations,
         "diagnostics_collected": incident.diagnostics_collected,
         "rca_completed": incident.rca_completed,
         "rca_report": incident.rca_report,

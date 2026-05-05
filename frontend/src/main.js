@@ -45,6 +45,12 @@ async function init() {
         if (data.type === 'INCIDENT_UPDATE' || data.type === 'EVENT_ADDED' || data.type === 'RCA_COMPLETE' || data.type === 'RUNBOOK_EXECUTED') {
             fetchIncidents();
         }
+        // Push to activity log for Dashboard feed
+        const entry = buildActivityEntry(data);
+        if (entry) {
+            const log = [entry, ...state.activityLog].slice(0, 30);
+            updateState({ activityLog: log }, true); // silent = don't trigger full re-render
+        }
     });
 
     // Subscribe to state changes to trigger re-renders
@@ -101,6 +107,24 @@ function renderView(view) {
             break;
         default:
             renderDashboardView(container);
+    }
+}
+
+function buildActivityEntry(data) {
+    const ts = new Date().toLocaleTimeString();
+    switch (data.type) {
+        case 'INCIDENT_UPDATE':
+            if (data.status === 'resolved')
+                return { ts, color: 'text-alert-green',   msg: `Incident resolved: ${data.alert_name} (${data.incident_id?.slice(0,8)})` };
+            return     { ts, color: 'text-alert-orange',  msg: `New incident firing: ${data.alert_name} (${data.incident_id?.slice(0,8)})` };
+        case 'RCA_COMPLETE':
+            return     { ts, color: 'text-primary-light dark:text-primary-dark', msg: `RCA complete for incident ${data.incident_id?.slice(0,8)}` };
+        case 'RUNBOOK_EXECUTED':
+            return     { ts, color: 'text-blue-400',      msg: `Runbook executed for ${data.incident_id?.slice(0,8)}: ${data.action || ''}` };
+        case 'EVENT_ADDED':
+            return     { ts, color: 'text-muted',         msg: data.message || 'Pipeline event' };
+        default:
+            return null;
     }
 }
 

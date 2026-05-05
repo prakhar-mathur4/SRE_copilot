@@ -50,13 +50,14 @@ export async function renderControlRoomView(container) {
                         <div class="flex gap-4">
                             <button id="view-ai-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-accent-primary">AI RCA</button>
                             <button id="view-raw-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all">Raw Telemetry</button>
+                            <button id="view-payload-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all">Alert Payload</button>
                         </div>
                         <span class="px-2 py-0.5 bg-accent-primary/10 text-accent-primary text-[9px] font-bold rounded">GPT-4o Vision</span>
                     </div>
-                    
+
                     <!-- AI Content -->
                     <div id="ai-content" class="flex-grow overflow-auto prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-white/5">
-                        ${inc.diagnostics_failed 
+                        ${inc.diagnostics_failed
                             ? `<div class="p-10 text-center border-2 border-dashed border-alert-red/20 rounded-2xl bg-alert-red/5">
                                 <h3 class="text-alert-red font-bold text-lg mb-2 uppercase tracking-tighter">Pipeline Failure</h3>
                                 <p class="text-xs text-muted leading-relaxed">The diagnostic engine could not reach the target infrastructure.<br><br>
@@ -69,6 +70,41 @@ export async function renderControlRoomView(container) {
                     <!-- Raw Content (Hidden by default) -->
                     <div id="raw-content" class="hidden flex-grow overflow-auto terminal bg-black/20">
                         <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (inc.diagnostics_failed ? 'ERROR: INFRASTRUCTURE UNREACHABLE' : 'No raw diagnostics available for this incident.')}</pre>
+                    </div>
+
+                    <!-- Alert Payload (Hidden by default) -->
+                    <div id="payload-content" class="hidden flex-grow overflow-auto p-1">
+                        ${(() => {
+                            const labels      = inc.labels      || {};
+                            const annotations = inc.annotations || {};
+                            const renderKV = (obj) => {
+                                const entries = Object.entries(obj);
+                                if (entries.length === 0) return '<span class="text-muted/50 italic text-xs">none</span>';
+                                return entries.map(([k, v]) => `
+                                    <div class="flex gap-3 py-1.5 border-b border-surface-hover-light/50 dark:border-surface-hover-dark/50 last:border-0 min-w-0">
+                                        <span class="text-[10px] font-mono font-bold text-primary-light dark:text-primary-dark shrink-0 w-40 truncate" title="${k}">${k}</span>
+                                        <span class="text-[11px] text-text-light dark:text-text-dark break-all">${v}</span>
+                                    </div>`).join('');
+                            };
+                            return `
+                                <div class="flex flex-col gap-5">
+                                    <div>
+                                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-2">Labels (${Object.keys(labels).length})</div>
+                                        <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">${renderKV(labels)}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-2">Annotations (${Object.keys(annotations).length})</div>
+                                        <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">${renderKV(annotations)}</div>
+                                    </div>
+                                    ${inc.alert_starts_at ? `
+                                    <div>
+                                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-2">Fire Time (Alertmanager)</div>
+                                        <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">
+                                            <span class="text-[11px] font-mono text-text-light dark:text-text-dark">${inc.alert_starts_at}</span>
+                                        </div>
+                                    </div>` : ''}
+                                </div>`;
+                        })()}
                     </div>
                 </div>
 
@@ -154,30 +190,28 @@ export async function renderControlRoomView(container) {
             </div>
         `;
 
-        // Logic
         // Tabs Logic
-        const aiBtn = container.querySelector('#view-ai-btn');
-        const rawBtn = container.querySelector('#view-raw-btn');
-        const aiContent = container.querySelector('#ai-content');
-        const rawContent = container.querySelector('#raw-content');
+        const aiBtn      = container.querySelector('#view-ai-btn');
+        const rawBtn     = container.querySelector('#view-raw-btn');
+        const payloadBtn = container.querySelector('#view-payload-btn');
+        const aiContent      = container.querySelector('#ai-content');
+        const rawContent     = container.querySelector('#raw-content');
+        const payloadContent = container.querySelector('#payload-content');
 
-        aiBtn.onclick = () => {
-            aiBtn.classList.add('border-accent-primary');
-            aiBtn.classList.remove('border-transparent', 'text-muted');
-            rawBtn.classList.remove('border-accent-primary');
-            rawBtn.classList.add('border-transparent', 'text-muted');
-            aiContent.classList.remove('hidden');
-            rawContent.classList.add('hidden');
-        };
+        const allBtns     = [aiBtn, rawBtn, payloadBtn];
+        const allContents = [aiContent, rawContent, payloadContent];
 
-        rawBtn.onclick = () => {
-            rawBtn.classList.add('border-accent-primary');
-            rawBtn.classList.remove('border-transparent', 'text-muted');
-            aiBtn.classList.remove('border-accent-primary');
-            aiBtn.classList.add('border-transparent', 'text-muted');
-            rawContent.classList.remove('hidden');
-            aiContent.classList.add('hidden');
-        };
+        function activateTab(btn, content) {
+            allBtns.forEach(b => { b.classList.remove('border-accent-primary'); b.classList.add('border-transparent', 'text-muted'); });
+            allContents.forEach(c => c.classList.add('hidden'));
+            btn.classList.add('border-accent-primary');
+            btn.classList.remove('border-transparent', 'text-muted');
+            content.classList.remove('hidden');
+        }
+
+        aiBtn.onclick      = () => activateTab(aiBtn, aiContent);
+        rawBtn.onclick     = () => activateTab(rawBtn, rawContent);
+        payloadBtn.onclick = () => activateTab(payloadBtn, payloadContent);
 
         const btn = container.querySelector('#approve-runbook-btn');
         if (btn) {

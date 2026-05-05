@@ -21,6 +21,7 @@ class IncidentState(BaseModel):
     severity: str
     context: str
     start_time: datetime
+    alert_starts_at: Optional[str] = None   # original Alertmanager startsAt
     labels: Dict[str, str] = {}
     annotations: Dict[str, str] = {}
     events: List[TimelineEvent] = []
@@ -45,7 +46,7 @@ class TimelineManager:
         return f"inc-{fingerprint}"
 
     def create_or_update_incident(self, fingerprint: str, alert_name: str, status: str, severity: str, context: str,
-                                   labels: Dict = None, annotations: Dict = None) -> IncidentState:
+                                   labels: Dict = None, annotations: Dict = None, alert_starts_at: str = None) -> IncidentState:
         incident_id = self._generate_incident_id(fingerprint)
         now = datetime.utcnow()
 
@@ -57,6 +58,7 @@ class TimelineManager:
                 status=status,
                 severity=severity,
                 context=context,
+                alert_starts_at=alert_starts_at,
                 labels=labels or {},
                 annotations=annotations or {},
                 start_time=now,

@@ -1,6 +1,6 @@
 import httpx
 import logging
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, List
 
 from bot.providers.base import DiagnosticProvider
 
@@ -12,8 +12,9 @@ class AlertmanagerProvider(DiagnosticProvider):
         self.url = url.rstrip("/")
         self.provider_name = name
         self.provider_type = "alertmanager"
-        # Tracks fingerprints seen in the last poll to detect resolutions
-        self._active_fingerprints: Set[str] = set()
+        # Maps Alertmanager fingerprint → full raw alert dict from last poll cycle
+        # Used to reconstruct resolved alerts with the original label set
+        self._active_alerts: Dict[str, dict] = {}
 
     async def get_health_metrics(self) -> Dict[str, Any]:
         try:

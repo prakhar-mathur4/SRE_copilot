@@ -1,17 +1,35 @@
 import { state, updateState } from '../utils/state';
 
+// Module-level sort state — survives re-renders within the same session
+let sortCol = 'time';   // 'name' | 'time' | 'severity'
+let sortDir = 'desc';   // 'asc'  | 'desc'
+
+const SEV_WEIGHT = { critical: 4, page: 4, warning: 3, info: 2 };
+
 function relativeTime(isoString) {
-    // Append Z so the browser always parses as UTC, matching the server clock
-    const date = new Date(isoString.endsWith('Z') ? isoString : isoString + 'Z');
-    const diffMs = Date.now() - date.getTime();
+    if (!isoString) return '—';
+    const norm = isoString.endsWith('Z') ? isoString : isoString + 'Z';
+    const date = new Date(norm);
+    if (isNaN(date.getTime())) return '—';
+    const diffMs  = Date.now() - date.getTime();
     const diffSec = Math.floor(diffMs / 1000);
     if (diffSec < 60)  return `${diffSec}s ago`;
     const diffMin = Math.floor(diffSec / 60);
     if (diffMin < 60)  return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
+    const diffHr  = Math.floor(diffMin / 60);
     if (diffHr < 24)   return `${diffHr}h ${diffMin % 60}m ago`;
     const diffDay = Math.floor(diffHr / 24);
     return `${diffDay}d ${diffHr % 24}h ago`;
+}
+
+// Returns the best available fire timestamp for an incident.
+// Prefers alert_starts_at (original Alertmanager time) but falls back to
+// start_time (pipeline arrival time) when startsAt is missing or is the
+// Alertmanager zero-value ("0001-01-01...").
+function resolveFireTime(inc) {
+    const raw = inc.alert_starts_at;
+    if (raw && !raw.startsWith('0001')) return raw;
+    return inc.start_time;
 }
 
 function renderContext(raw) {
@@ -68,10 +86,13 @@ function openQuickView(inc) {
                         <span class="text-[9px] font-mono text-muted">${inc.incident_id.slice(0, 16)}…</span>
                     </div>
                     <h2 class="text-lg font-bold text-text-light dark:text-text-dark truncate">${inc.alert_name}</h2>
-                    <div class="flex gap-4 text-[10px] text-muted mt-0.5">
-                        <span>Started: <span class="text-text-light dark:text-text-dark">${relativeTime(inc.start_time)}</span></span>
+                    <div class="flex gap-4 text-[10px] text-muted mt-0.5 flex-wrap">
+                        <span>Started: <span class="text-text-light dark:text-text-dark">${relativeTime(resolveFireTime(inc))}</span></span>
                         <span>Updated: <span class="text-text-light dark:text-text-dark">${relativeTime(inc.last_updated)}</span></span>
                         <span>Events: <span class="text-text-light dark:text-text-dark">${inc.event_count}</span></span>
+                        ${inc.dedup_count > 0
+                            ? `<span class="flex items-center gap-1">Storm Protection: <span class="ml-1 px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold">${inc.dedup_count} suppressed</span></span>`
+                            : ''}
                     </div>
                 </div>
                 <button id="qv-close" class="shrink-0 p-1.5 rounded-lg hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark text-muted hover:text-text-light dark:hover:text-text-dark transition-colors">
@@ -133,6 +154,13 @@ function openQuickView(inc) {
     };
 }
 
+function sortIcon(col) {
+    if (sortCol !== col) return '<svg class="inline ml-1 opacity-20" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7"/></svg>';
+    return sortDir === 'asc'
+        ? '<svg class="inline ml-1" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'
+        : '<svg class="inline ml-1" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+}
+
 export function renderActiveIncidentsView(container) {
     let active = state.incidents.filter(i => i.status !== 'resolved');
 
@@ -141,7 +169,24 @@ export function renderActiveIncidentsView(container) {
     if (state.activeIncidentsFilter !== 'all') {
         active = active.filter(i => (i.namespace || 'unknown') === state.activeIncidentsFilter);
     }
-    
+
+    // Apply sort
+    active = [...active].sort((a, b) => {
+        let cmp = 0;
+        if (sortCol === 'name') {
+            cmp = a.alert_name.localeCompare(b.alert_name);
+        } else if (sortCol === 'severity') {
+            const wa = SEV_WEIGHT[(a.severity || '').toLowerCase()] ?? 1;
+            const wb = SEV_WEIGHT[(b.severity || '').toLowerCase()] ?? 1;
+            cmp = wa - wb;
+        } else {
+            const ta = new Date(resolveFireTime(a)).getTime();
+            const tb = new Date(resolveFireTime(b)).getTime();
+            cmp = ta - tb;
+        }
+        return sortDir === 'asc' ? cmp : -cmp;
+    });
+
     container.innerHTML = `
         <div class="h-full min-h-0 pane flex flex-col">
             <div class="pane-header flex justify-between items-center">
@@ -156,15 +201,16 @@ export function renderActiveIncidentsView(container) {
                     <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
                         <tr>
                             <th class="p-4">ID</th>
-                            <th class="p-4">Severity</th>
-                            <th class="p-4">Alert Name</th>
+                            <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-sev">Severity${sortIcon('severity')}</th>
+                            <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-name">Alert Name${sortIcon('name')}</th>
                             <th class="p-4">Context</th>
-                            <th class="p-4">Time</th>
+                            <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-time">Time${sortIcon('time')}</th>
+                            <th class="p-4 text-center" title="Duplicate firings dropped by storm protection">Suppressed</th>
                             <th class="p-4 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="incidents-body">
-                        ${active.length === 0 ? `<tr><td colspan="6" class="p-16 text-center text-primary-light dark:text-primary-dark font-mono uppercase text-xs tracking-widest">No active incidents. Cluster healthy.</td></tr>` : ''}
+                        ${active.length === 0 ? `<tr><td colspan="7" class="p-16 text-center text-primary-light dark:text-primary-dark font-mono uppercase text-xs tracking-widest">No active incidents. Cluster healthy.</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>
@@ -180,7 +226,12 @@ export function renderActiveIncidentsView(container) {
             <td class="p-4"><span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span></td>
             <td class="p-4 font-bold text-text-light dark:text-text-dark">${inc.alert_name}</td>
             <td class="p-4 font-medium text-muted">${renderContext(inc.namespace)}</td>
-            <td class="p-4 text-muted text-[11px]" title="${new Date(inc.start_time.endsWith('Z') ? inc.start_time : inc.start_time + 'Z').toLocaleString()}">${relativeTime(inc.start_time)}</td>
+            <td class="p-4 text-muted text-[11px]" title="${new Date(resolveFireTime(inc).endsWith('Z') ? resolveFireTime(inc) : resolveFireTime(inc) + 'Z').toLocaleString()}">${relativeTime(resolveFireTime(inc))}</td>
+            <td class="p-4 text-center">
+                ${inc.dedup_count > 0
+                    ? `<span class="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold">${inc.dedup_count}x</span>`
+                    : '<span class="text-muted/40 text-[10px]">—</span>'}
+            </td>
             <td class="p-4 text-center">
                 <button class="quickview-btn px-3 py-1 bg-surface-hover-light dark:bg-surface-hover-dark hover:bg-primary-light/10 dark:hover:bg-primary-dark/20 border border-surface-hover-light dark:border-surface-hover-dark text-text-light dark:text-text-dark text-[9px] font-bold uppercase rounded transition-colors" data-id="${inc.incident_id}">View</button>
             </td>
@@ -209,5 +260,23 @@ export function renderActiveIncidentsView(container) {
     if (filter) {
         filter.onchange = (e) => updateState({ activeIncidentsFilter: e.target.value });
     }
+
+    container.querySelector('#sort-sev').onclick = () => {
+        sortDir = (sortCol === 'severity' && sortDir === 'desc') ? 'asc' : 'desc';
+        sortCol = 'severity';
+        renderActiveIncidentsView(container);
+    };
+
+    container.querySelector('#sort-name').onclick = () => {
+        sortDir = (sortCol === 'name' && sortDir === 'asc') ? 'desc' : 'asc';
+        sortCol = 'name';
+        renderActiveIncidentsView(container);
+    };
+
+    container.querySelector('#sort-time').onclick = () => {
+        sortDir = (sortCol === 'time' && sortDir === 'desc') ? 'asc' : 'desc';
+        sortCol = 'time';
+        renderActiveIncidentsView(container);
+    };
 
 }
