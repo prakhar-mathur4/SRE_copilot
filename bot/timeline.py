@@ -21,6 +21,8 @@ class IncidentState(BaseModel):
     severity: str
     context: str
     start_time: datetime
+    labels: Dict[str, str] = {}
+    annotations: Dict[str, str] = {}
     events: List[TimelineEvent] = []
     diagnostics_collected: bool = False
     diagnostics_failed: bool = False
@@ -42,10 +44,11 @@ class TimelineManager:
     def _generate_incident_id(self, fingerprint: str) -> str:
         return f"inc-{fingerprint}"
 
-    def create_or_update_incident(self, fingerprint: str, alert_name: str, status: str, severity: str, context: str) -> IncidentState:
+    def create_or_update_incident(self, fingerprint: str, alert_name: str, status: str, severity: str, context: str,
+                                   labels: Dict = None, annotations: Dict = None) -> IncidentState:
         incident_id = self._generate_incident_id(fingerprint)
         now = datetime.utcnow()
-        
+
         if incident_id not in self.incidents:
             logger.info(f"Creating new incident timeline: {incident_id} for {alert_name}")
             self.incidents[incident_id] = IncidentState(
@@ -54,6 +57,8 @@ class TimelineManager:
                 status=status,
                 severity=severity,
                 context=context,
+                labels=labels or {},
+                annotations=annotations or {},
                 start_time=now,
                 last_updated=now
             )

@@ -53,7 +53,9 @@ async def process_alert_background(alert: AlertData):
         alert_name=alert_name,
         status=status,
         severity=severity,
-        context=context
+        context=context,
+        labels=dict(alert.labels),
+        annotations=dict(alert.annotations),
     )
     incident_id = incident.incident_id
 
