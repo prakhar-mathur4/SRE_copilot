@@ -23,8 +23,11 @@ class IncidentState(BaseModel):
     start_time: datetime
     events: List[TimelineEvent] = []
     diagnostics_collected: bool = False
+    diagnostics_failed: bool = False
+    diagnostics_error: Optional[str] = None
     rca_completed: bool = False
     rca_report: Optional[str] = None
+    raw_diagnostics: Optional[str] = None
     runbook_executed: bool = False
     runbook_action: Optional[str] = None
     last_updated: datetime

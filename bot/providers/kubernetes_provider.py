@@ -2,22 +2,12 @@ import logging
 from typing import Dict, Any, List
 from bot.providers.base import DiagnosticProvider
 
-try:
-    from kubernetes import client, config
-    from kubernetes.client.rest import ApiException
-    
-    try:
-        config.load_incluster_config()
-    except config.ConfigException:
-        config.load_kube_config()
-    
-    v1_api = client.CoreV1Api()
-    custom_api = client.CustomObjectsApi()
-    k8s_available = True
-except Exception as e:
-    k8s_available = False
-
 logger = logging.getLogger("sre_copilot")
+
+try:
+    from kubernetes.client.rest import ApiException
+except ImportError:
+    ApiException = Exception
 
 def _parse_quantity(quantity: str) -> float:
     if not quantity: return 0
@@ -33,9 +23,39 @@ def _parse_quantity(quantity: str) -> float:
         return 0
 
 class KubernetesProvider(DiagnosticProvider):
+    def __init__(self, kubeconfig_path: str = None, context: str = None):
+        self.k8s_available = False
+        self.v1_api = None
+        self.custom_api = None
+        self.provider_name = f"K8s Cluster ({context or 'Default'})"
+        
+        try:
+            from kubernetes import client, config
+            if kubeconfig_path:
+                config.load_kube_config(config_file=kubeconfig_path, context=context)
+            else:
+                try:
+                    # Try specific context first if provided
+                    if context:
+                        config.load_kube_config(context=context)
+                    else:
+                        raise Exception("No context")
+                except:
+                    # Fallback to default (in-cluster or current-context)
+                    try:
+                        config.load_incluster_config()
+                    except:
+                        config.load_kube_config() # Loads default current-context
+            
+            self.v1_api = client.CoreV1Api()
+            self.custom_api = client.CustomObjectsApi()
+            self.k8s_available = True
+            logger.info(f"Kubernetes provider '{self.provider_name}' initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Kubernetes provider '{self.provider_name}': {e}")
     
     async def get_health_metrics(self) -> Dict[str, Any]:
-        if not k8s_available:
+        if not self.k8s_available:
             return {
                 "cpu_usage": 0,
                 "memory_usage": 0,
@@ -43,12 +63,12 @@ class KubernetesProvider(DiagnosticProvider):
                 "nodes_online": 0,
                 "nodes_total": 0,
                 "status": "offline",
-                "name": "Kubernetes Cluster",
+                "name": self.provider_name,
                 "simulation_mode": False
             }
 
         try:
-            nodes = v1_api.list_node()
+            nodes = self.v1_api.list_node()
             nodes_total = len(nodes.items)
             nodes_online = sum(1 for n in nodes.items if any(c.type == 'Ready' and c.status == 'True' for c in n.status.conditions))
             
@@ -59,7 +79,7 @@ class KubernetesProvider(DiagnosticProvider):
                 total_mem_cap += _parse_quantity(n.status.capacity.get('memory', '0'))
 
             try:
-                metrics = custom_api.list_cluster_custom_object("metrics.k8s.io", "v1beta1", "nodes")
+                metrics = self.custom_api.list_cluster_custom_object("metrics.k8s.io", "v1beta1", "nodes")
                 used_cpu = 0
                 used_mem = 0
                 for m in metrics.get('items', []):
@@ -80,7 +100,7 @@ class KubernetesProvider(DiagnosticProvider):
                 "nodes_online": nodes_online,
                 "nodes_total": nodes_total,
                 "status": "healthy" if nodes_online == nodes_total else "degraded",
-                "name": "Kubernetes Cluster"
+                "name": self.provider_name
             }
             from bot.chaos_manager import chaos_manager
             return chaos_manager.apply_chaos(metrics)
@@ -92,7 +112,7 @@ class KubernetesProvider(DiagnosticProvider):
         namespace = context or "default"
         logger.info(f"Collecting K8s diagnostics for namespace: {namespace}")
         
-        if not k8s_available:
+        if not self.k8s_available:
             return "Infrastructure Error: Kubernetes API is currently unreachable. Diagnostics cannot be collected."
             
         diagnostics = []
@@ -102,10 +122,10 @@ class KubernetesProvider(DiagnosticProvider):
         try:
             if pod_name:
                 diagnostics.append(f"Analyzing specific pod: {pod_name}")
-                pod = v1_api.read_namespaced_pod(name=pod_name, namespace=namespace)
+                pod = self.v1_api.read_namespaced_pod(name=pod_name, namespace=namespace)
                 diagnostics.append(f"Pod Status: {pod.status.phase}")
                 
-                events = v1_api.list_namespaced_event(
+                events = self.v1_api.list_namespaced_event(
                     namespace=namespace,
                     field_selector=f"involvedObject.name={pod_name},involvedObject.kind=Pod"
                 )
@@ -113,21 +133,21 @@ class KubernetesProvider(DiagnosticProvider):
                     diagnostics.append(f"Event [{event.type}]: {event.reason} - {event.message}")
                     
                 try:
-                    logs = v1_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, tail_lines=20)
+                    logs = self.v1_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, tail_lines=20)
                     diagnostics.append(f"\nRecent Logs:\n{logs}")
                 except ApiException as e:
                     diagnostics.append(f"Could not retrieve pod logs: {e.reason}")
                     
             elif deployment_name:
                 diagnostics.append(f"Analyzing deployment: {deployment_name}")
-                pods = v1_api.list_namespaced_pod(namespace=namespace, label_selector=f"app={deployment_name}")
+                pods = self.v1_api.list_namespaced_pod(namespace=namespace, label_selector=f"app={deployment_name}")
                 for p in pods.items:
                     diagnostics.append(f"Pod {p.metadata.name} Status: {p.status.phase}")
                     if p.status.phase != "Running":
                         diagnostics.append(f"Warning: Pod {p.metadata.name} is not running normally.")
             else:
                 diagnostics.append("No specific pod or deployment labels found. Collecting general namespace events.")
-                events = v1_api.list_namespaced_event(namespace=namespace)
+                events = self.v1_api.list_namespaced_event(namespace=namespace)
                 for event in events.items[-5:]:
                     if event.type != "Normal":
                         diagnostics.append(f"Warning Event [{event.involved_object.kind}/{event.involved_object.name}]: {event.reason} - {event.message}")
@@ -143,21 +163,21 @@ class KubernetesProvider(DiagnosticProvider):
 
     async def list_resources(self, context: str = None) -> List[Dict[str, Any]]:
         namespace = context
-        if not k8s_available:
+        if not self.k8s_available:
             return []
 
         try:
             if namespace:
-                pods = v1_api.list_namespaced_pod(namespace)
+                pods = self.v1_api.list_namespaced_pod(namespace)
             else:
-                pods = v1_api.list_pod_for_all_namespaces()
+                pods = self.v1_api.list_pod_for_all_namespaces()
             
             pod_metrics = {}
             try:
                 if namespace:
-                    metrics_resp = custom_api.list_namespaced_custom_object("metrics.k8s.io", "v1beta1", namespace, "pods")
+                    metrics_resp = self.custom_api.list_namespaced_custom_object("metrics.k8s.io", "v1beta1", namespace, "pods")
                 else:
-                    metrics_resp = custom_api.list_cluster_custom_object("metrics.k8s.io", "v1beta1", "pods")
+                    metrics_resp = self.custom_api.list_cluster_custom_object("metrics.k8s.io", "v1beta1", "pods")
                 
                 for item in metrics_resp.get("items", []):
                     name = item["metadata"]["name"]
@@ -170,6 +190,7 @@ class KubernetesProvider(DiagnosticProvider):
 
             result = []
             import datetime
+            from kubernetes import client
             now = datetime.datetime.now(datetime.timezone.utc)
 
             for p in pods.items:
@@ -196,13 +217,13 @@ class KubernetesProvider(DiagnosticProvider):
                 if p.metadata.owner_references:
                     direct_owner = p.metadata.owner_references[0].kind
                     owner_kind = "Deployment" if direct_owner == "ReplicaSet" else direct_owner
-
+                
                 result.append({
                     "name": name,
                     "namespace": ns,
                     "kind": owner_kind,
                     "node_ip": p.status.host_ip or "N/A",
-                    "cluster_name": "k8s-cluster",
+                    "cluster_name": self.provider_name,
                     "status": p.status.phase,
                     "cpu_usage": cpu_val,
                     "memory_usage": mem_val,
@@ -213,3 +234,9 @@ class KubernetesProvider(DiagnosticProvider):
         except Exception as e:
             logger.error(f"Error listing pods: {e}")
             return []
+
+    async def get_time_series(self) -> Dict[str, Any]:
+        """Kubernetes Metrics API does not store historical data natively without Prometheus."""
+        return {
+            "error": "Prometheus or Node Exporter telemetry not correctly configured for this cluster. Historical graphs cannot be generated."
+        }
