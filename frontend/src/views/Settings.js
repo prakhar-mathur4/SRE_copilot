@@ -30,10 +30,15 @@ export async function renderSettingsView(container) {
                             ${connectors.map(c => `
                                 <div class="pane p-6 flex justify-between items-center group">
                                     <div class="flex items-center gap-4">
-                                        <div class="p-3 rounded-xl ${c.type === 'kubernetes' ? 'bg-blue-500/10 text-blue-500' : c.type === 'prometheus' ? 'bg-orange-500/10 text-orange-500' : 'bg-green-500/10 text-green-500'}">
+                                        <div class="p-3 rounded-xl ${
+                                            c.type === 'kubernetes' ? 'bg-blue-500/10 text-blue-500' :
+                                            c.type === 'prometheus' ? 'bg-orange-500/10 text-orange-500' :
+                                            c.type === 'alertmanager' ? 'bg-red-500/10 text-red-500' :
+                                            'bg-green-500/10 text-green-500'}">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
                                                 c.type === 'kubernetes' ? '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>' :
                                                 c.type === 'prometheus' ? '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>' :
+                                                c.type === 'alertmanager' ? '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>' :
                                                 '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect>'
                                             }</svg>
                                         </div>
@@ -88,6 +93,7 @@ export async function renderSettingsView(container) {
                         <div class="flex flex-col gap-2">
                             <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Type</label>
                             <select id="new-conn-type" class="input-modern">
+                                <option value="alertmanager">Alertmanager</option>
                                 <option value="prometheus">Prometheus Server</option>
                                 <option value="kubernetes">Kubernetes Cluster</option>
                                 <option value="local_machine">Local Machine</option>
@@ -95,7 +101,8 @@ export async function renderSettingsView(container) {
                         </div>
                         <div id="url-container" class="flex flex-col gap-2">
                             <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Endpoint URL</label>
-                            <input type="text" id="new-conn-url" placeholder="http://10.0.0.5:9090" class="input-modern">
+                            <input type="text" id="new-conn-url" placeholder="http://10.0.0.5:9093" class="input-modern">
+                            <p id="url-hint" class="text-[10px] text-muted">Alertmanager base URL — alerts will be polled every 30s automatically.</p>
                         </div>
                         
                         <div class="flex gap-4 mt-4">
@@ -111,6 +118,20 @@ export async function renderSettingsView(container) {
         const modal = container.querySelector('#add-modal');
         container.querySelector('#show-add-modal').onclick = () => modal.classList.remove('hidden');
         container.querySelector('#close-modal').onclick = () => modal.classList.add('hidden');
+
+        const typeHints = {
+            alertmanager: { placeholder: 'http://10.0.0.5:9093', hint: 'Alertmanager base URL — alerts polled every 30s automatically.' },
+            prometheus:   { placeholder: 'http://10.0.0.5:9090', hint: 'Prometheus server URL — used for metrics and diagnostics.' },
+            kubernetes:   { placeholder: 'my-k8s-context',       hint: 'Kubeconfig context name, or leave blank for default.' },
+            local_machine:{ placeholder: 'localhost',             hint: 'Monitors this machine via psutil — URL is not used.' },
+        };
+        const urlInput = container.querySelector('#new-conn-url');
+        const urlHint  = container.querySelector('#url-hint');
+        container.querySelector('#new-conn-type').onchange = (e) => {
+            const h = typeHints[e.target.value] || typeHints.alertmanager;
+            urlInput.placeholder = h.placeholder;
+            urlHint.textContent  = h.hint;
+        };
 
         container.querySelector('#confirm-add-conn').onclick = async () => {
             const btn = container.querySelector('#confirm-add-conn');
