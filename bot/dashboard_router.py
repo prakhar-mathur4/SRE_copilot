@@ -147,6 +147,8 @@ async def list_incidents():
             "namespace": incident.context,
             "start_time": incident.start_time.isoformat(),
             "last_updated": incident.last_updated.isoformat(),
+            "labels": incident.labels,
+            "annotations": incident.annotations,
             "diagnostics_collected": incident.diagnostics_collected,
             "rca_completed": incident.rca_completed,
             "rca_report": incident.rca_report,
