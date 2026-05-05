@@ -4,29 +4,51 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        primary: '#00E5FF',
-        background: '#0B0C10',
-        surface: '#181A1F',
-        'surface-hover': '#2A2D35',
-        text: '#E0E6ED',
-        muted: '#848D97',
+        primary: {
+          light: '#7C3AED', // Violet
+          dark: '#8B5CF6',  // Vibrant Violet
+          DEFAULT: '#7C3AED',
+        },
+        background: {
+          light: '#FAF5FF', // Soft Lavender White
+          dark: '#0B0A1A',  // Deep Midnight Violet
+          DEFAULT: '#FAF5FF',
+        },
+        surface: {
+          light: '#FFFFFF',
+          dark: '#16142E',  // Dark Violet Slate
+          DEFAULT: '#FFFFFF',
+          hover: {
+            light: '#F3E8FF',
+            dark: '#242145',
+            DEFAULT: '#F3E8FF',
+          }
+        },
+        text: {
+          light: '#1E1B4B', // Deep Navy
+          dark: '#F8FAFC',  // Ghost White
+          DEFAULT: '#1E1B4B',
+        },
+        muted: {
+          light: '#e2e8f0',
+          dark: '#e2e8f0',
+          DEFAULT: '#e2e8f0',
+        },
         alert: {
-          red: '#FF1744',
-          orange: '#FF9100',
-          green: '#00E676',
+          red: '#EF4444',
+          orange: '#F59E0B',
+          green: '#10B981',
         }
       },
       fontFamily: {
-        heading: ['Space Grotesk', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        heading: ['Fira Code', 'monospace'],
+        body: ['Fira Sans', 'sans-serif'],
+        mono: ['Fira Code', 'monospace'],
       },
-      borderRadius: {
-        'sm': '2px',
-      }
     },
   },
   plugins: [],

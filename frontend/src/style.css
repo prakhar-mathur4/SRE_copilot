@@ -1,60 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-background text-text font-body overflow-hidden;
-  }
+:root {
+  --bg-color: #020617;
+  --surface-color: #0f172a;
+  --surface-hover: #1e293b;
+  --text-primary: #f8fafc;
+  --text-muted: #e2e8f0;
+  --accent-primary: #38bdf8;
+  --accent-success: #22c55e;
+  --accent-warning: #f59e0b;
+  --accent-danger: #ef4444;
 }
 
-@layer components {
-  .pane {
-    @apply bg-surface border border-surface-hover rounded-sm;
-  }
-
-  .pane-header {
-    @apply h-8 px-4 flex items-center border-b border-surface-hover font-heading text-xs font-bold uppercase tracking-wider;
-  }
-
-  .btn-primary {
-    @apply bg-primary text-background font-bold text-xs px-4 h-8 rounded-sm hover:brightness-110 transition-all uppercase;
-  }
-
-  .btn-outline {
-    @apply border border-muted text-muted font-bold text-xs px-4 h-8 rounded-sm hover:text-text hover:border-text transition-all uppercase;
-  }
-
-  .badge {
-    @apply px-2 h-5 inline-flex items-center text-[10px] font-bold rounded-sm uppercase;
-  }
-
-  .badge-sev1 { @apply bg-alert-red text-black; }
-  .badge-sev2 { @apply bg-alert-orange text-black; }
-  .badge-sev3 { @apply bg-primary text-black; }
-
-  /* Custom terminal styles */
-  .terminal {
-    @apply bg-black font-mono text-[12px] p-4 overflow-y-auto;
-  }
-
-  /* Custom inner shadows for terminal/inputs */
-  .inner-glow {
-    box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.05);
-  }
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Fira Sans', sans-serif;
+  overflow-x: hidden;
 }
 
-/* Scrollbar styling */
+h1, h2, h3, h4, .font-heading {
+  font-family: 'Fira Code', monospace;
+  letter-spacing: -0.025em;
+}
+
+/* Glassmorphism Components */
+.glass {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pane {
+  background: var(--surface-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pane:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+.pane-header {
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-family: 'Fira Code', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+/* Bento Grid System */
+.bento-card {
+  @apply pane p-6 flex flex-col h-full;
+}
+
+/* Buttons */
+.btn-primary {
+  @apply h-10 px-6 rounded-lg font-bold text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2;
+  background: linear-gradient(135deg, #38bdf8 0%, #1d4ed8 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+}
+
+.btn-primary:hover {
+  @apply opacity-90;
+  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.3);
+}
+
+.btn-outline {
+  @apply h-10 px-6 rounded-lg font-bold text-xs uppercase tracking-widest border border-white/10 hover:bg-white/5 transition-all active:scale-95;
+}
+
+/* Badges */
+.badge {
+  @apply px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center;
+}
+
+.badge-sev1 { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+.badge-sev2 { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+.badge-sev3 { background: rgba(56, 189, 248, 0.1); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.2); }
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  @apply bg-background;
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  @apply bg-surface-hover;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Terminal Styling */
+.terminal {
+  @apply font-mono text-[11px] leading-relaxed p-4 bg-black/40 rounded-lg border border-white/5;
+  color: #a5f3fc;
+}
+
+.terminal-line {
+  @apply flex gap-3;
+}
+
+.terminal-timestamp {
+  @apply text-white/40 select-none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
 }

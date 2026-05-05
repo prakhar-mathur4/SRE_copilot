@@ -4,54 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SRE Copilot | Industrial Command Center</title>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <title>SRE Copilot | Enterprise Control Center</title>
 </head>
-<body class="bg-background text-text font-body h-screen flex overflow-hidden">
+<body class="bg-background-light text-text-light dark:bg-background-dark dark:text-text-dark font-body h-screen flex overflow-hidden transition-colors duration-300">
+    
     <!-- Sidebar Navigation -->
-    <nav class="w-[64px] h-full flex flex-col items-center py-4 bg-surface border-r border-surface-hover shrink-0">
-        <div class="mb-8 p-2 rounded-sm bg-primary/10 text-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="flex flex-col gap-6">
-            <button id="nav-active" class="p-2 transition-all text-primary" title="Active Incidents">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </button>
-            <button id="nav-archive" class="p-2 transition-all text-muted hover:text-primary" title="Post-Mortem Archive">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </button>
-            <button id="nav-chaos" class="p-2 transition-all text-muted hover:text-primary" title="Chaos Engineering">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-            </button>
-            <button id="nav-pods" class="p-2 transition-all text-muted hover:text-primary" title="Resource Inventory">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            </button>
-        </div>
+    <nav class="w-[80px] h-full flex flex-col items-center py-6 bg-surface-light dark:bg-surface-dark border-r border-surface-hover-light dark:border-surface-hover-dark shrink-0 z-20">
+        <!-- Rendered by Sidebar.js -->
     </nav>
 
     <!-- Main Content Area -->
-    <main id="app-content" class="flex-grow flex flex-col min-w-0">
+    <main id="app-content" class="flex-grow flex flex-col min-w-0 relative">
         <!-- Dashboard Header -->
-        <header class="h-[64px] border-b border-surface-hover flex items-center px-6 justify-between bg-surface/50 backdrop-blur-md sticky top-0 z-10">
-            <h1 class="font-heading text-lg font-bold tracking-tight uppercase flex items-center gap-3">
-                <span id="view-title">Active Incidents</span>
-                <span id="connection-status" class="w-2 h-2 rounded-full bg-alert-green shadow-[0_0_8px_#00E676]"></span>
-            </h1>
-            <div class="flex items-center gap-4 text-xs font-medium text-muted">
-                <span>Environment: <span class="text-text">eks-production-01</span></span>
-                <span>Context: <span class="text-text">All</span></span>
-                <button class="btn-outline ml-2" id="fire-test-btn">Fire Test Alert</button>
-            </div>
+        <header class="h-[72px] border-b border-surface-hover-light dark:border-surface-hover-dark flex items-center px-8 justify-between bg-surface-light/80 dark:bg-surface-dark/80 backdrop-blur-xl sticky top-0 z-10">
+            <!-- Rendered by Header.js -->
         </header>
 
         <!-- Dynamic Content -->
-        <div id="main-view" class="flex-grow p-4 min-h-0">
+        <div id="main-view" class="flex-grow p-6 overflow-y-auto min-h-0">
             <!-- Loading State -->
-            <div id="loading-overlay" class="flex items-center justify-center h-full">
-                <div class="text-primary font-mono animate-pulse">Initializing Data Stream...</div>
+            <div id="loading-overlay" class="flex flex-col items-center justify-center h-full gap-4">
+                <div class="w-12 h-12 border-4 border-primary-light/20 border-t-primary-light rounded-full animate-spin"></div>
+                <div class="text-primary-light font-heading font-bold uppercase tracking-widest text-xs animate-pulse">Initializing Neural Link...</div>
             </div>
         </div>
     </main>
