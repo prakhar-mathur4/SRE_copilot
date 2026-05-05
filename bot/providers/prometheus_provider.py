@@ -8,24 +8,52 @@ logger = logging.getLogger("sre_copilot")
 
 class PrometheusProvider(DiagnosticProvider):
     def __init__(self, prometheus_url: str = None):
-        # Prefer environment variable if not passed
-        self.prometheus_url = prometheus_url or os.getenv("PROMETHEUS_URL")
+        # Prefer environment variable if not passed; strip trailing slash to avoid double-slash URLs
+        url = prometheus_url or os.getenv("PROMETHEUS_URL", "")
+        self.prometheus_url = url.rstrip("/")
         self.provider_name = "Prometheus VM Monitor"
+        self.provider_type = "prometheus"
 
     async def get_health_metrics(self) -> Dict[str, Any]:
-        """Verify if the Prometheus gateway is reachable."""
+        """Check Prometheus health and fetch real CPU/memory metrics."""
         if not self.prometheus_url:
             return {"status": "offline", "name": self.provider_name, "error": "PROMETHEUS_URL not configured"}
-            
+
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                # Basic health check to the Prometheus API
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
                 res = await client.get(f"{self.prometheus_url}/-/healthy")
-                if res.status_code == 200:
-                    return {"status": "healthy", "name": self.provider_name, "cpu_usage": 0, "memory_usage": 0}
+                if res.status_code != 200:
+                    return {"status": "offline", "name": self.provider_name, "error": f"HTTP {res.status_code}"}
+
+                # Query real CPU usage (average across all node_exporter instances)
+                cpu_usage = 0
+                mem_usage = 0
+
+                query_cpu = '100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+                r_cpu = await client.get(f"{self.prometheus_url}/api/v1/query", params={"query": query_cpu})
+                if r_cpu.status_code == 200:
+                    results = r_cpu.json().get("data", {}).get("result", [])
+                    if results:
+                        cpu_usage = round(float(results[0]["value"][1]))
+
+                query_mem = '(1 - (sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes))) * 100'
+                r_mem = await client.get(f"{self.prometheus_url}/api/v1/query", params={"query": query_mem})
+                if r_mem.status_code == 200:
+                    results = r_mem.json().get("data", {}).get("result", [])
+                    if results:
+                        mem_usage = round(float(results[0]["value"][1]))
+
+                return {
+                    "status": "online",
+                    "name": self.provider_name,
+                    "cpu_usage": cpu_usage,
+                    "memory_usage": mem_usage,
+                    "nodes_online": 1,
+                    "nodes_total": 1,
+                }
         except Exception as e:
-            logger.error(f"Prometheus health check failed: {e}")
-            
+            logger.error(f"Prometheus unreachable at {self.prometheus_url}: {e}")
+
         return {"status": "offline", "name": self.provider_name, "error": "Connection timed out"}
 
     async def collect_diagnostics(self, context: str, alert_labels: Dict[str, str]) -> str:

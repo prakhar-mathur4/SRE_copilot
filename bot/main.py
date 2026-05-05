@@ -4,6 +4,7 @@ Main entry point for SRE Copilot Incident Bot
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 from dotenv import load_dotenv
 
@@ -24,8 +25,11 @@ logger = logging.getLogger("sre_copilot")
 async def lifespan(app: FastAPI):
     logger.info("Starting up SRE Copilot Bot...")
     from bot.providers import init_providers
+    from bot.alertmanager_poller import poll_alertmanagers_loop
     init_providers()
+    poller_task = asyncio.create_task(poll_alertmanagers_loop())
     yield
+    poller_task.cancel()
     logger.info("Shutting down SRE Copilot Bot...")
     timeline_manager.cleanup()
 
