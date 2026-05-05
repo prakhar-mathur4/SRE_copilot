@@ -23,6 +23,11 @@ import { renderSettingsView } from './views/Settings';
  * INITIALIZATION
  */
 async function init() {
+    // Ensure URL has a hash on first load
+    if (!window.location.hash) {
+        window.history.replaceState(null, '', '#/dashboard');
+    }
+
     // Initial UI Setup
     applyTheme();
     renderHeader();
