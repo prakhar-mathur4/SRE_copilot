@@ -2,13 +2,13 @@
  * RULES & SUPPRESSION CENTER
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE, fetchFilters, addFilter, deleteFilter, fetchMaintenance, addMaintenance, deleteMaintenance, evaluateCel } from '../utils/api';
+import { API_BASE, fetchFilters, addFilter, deleteFilter, fetchMaintenance, addMaintenance, deleteMaintenance, evaluateCel, fetchNoiseStats } from '../utils/api';
 
 export async function renderRulesView(container) {
     container.innerHTML = '<div class="p-20 text-center animate-pulse font-heading text-lg">LOADING SUPPRESSION REGISTRY...</div>';
 
     try {
-        const [filters, windows] = await Promise.all([fetchFilters(), fetchMaintenance()]);
+        const [filters, windows, stats] = await Promise.all([fetchFilters(), fetchMaintenance(), fetchNoiseStats()]);
 
         container.innerHTML = `
             <div class="flex flex-col gap-8 h-full max-w-7xl mx-auto py-10 px-6 animate-fade-in">
@@ -17,6 +17,53 @@ export async function renderRulesView(container) {
                     <h2 class="text-3xl font-bold tracking-tight">Suppression Center</h2>
                     <p class="text-muted text-sm max-w-2xl">Manage alert noise by defining filter rules and maintenance windows using Common Expression Language (CEL).</p>
                 </div>
+
+                <!-- Stats Bar -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="pane flex flex-col gap-1 p-5">
+                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted">Storm Protection (Dedup)</div>
+                        <div class="text-3xl font-bold text-yellow-400">${stats.total_deduplicated}</div>
+                        <div class="text-[10px] text-muted">duplicate firings dropped this session</div>
+                    </div>
+                    <div class="pane flex flex-col gap-1 p-5">
+                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted">Filter Rule Drops</div>
+                        <div class="text-3xl font-bold text-red-400">${stats.total_filter_dropped}</div>
+                        <div class="text-[10px] text-muted">alerts discarded by CEL rules</div>
+                    </div>
+                    <div class="pane flex flex-col gap-1 p-5">
+                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted">Maintenance Suppressions</div>
+                        <div class="text-3xl font-bold text-blue-400">${stats.total_maintenance_suppressed}</div>
+                        <div class="text-[10px] text-muted">alerts silenced by maintenance windows</div>
+                    </div>
+                </div>
+
+                ${stats.dedup_details.length > 0 ? `
+                <!-- Dedup Details -->
+                <div class="pane">
+                    <div class="pane-header">Active Storm Protection — Deduplicated Alerts</div>
+                    <div class="p-0 overflow-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="sticky top-0 bg-surface-color border-b border-white/5 text-[10px] uppercase text-muted font-bold">
+                                <tr>
+                                    <th class="p-4">Alert Name</th>
+                                    <th class="p-4">Fingerprint</th>
+                                    <th class="p-4 text-right">Duplicate Drops</th>
+                                    <th class="p-4 text-right">Last Seen</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">
+                                ${stats.dedup_details.map(d => `
+                                    <tr class="hover:bg-white/5 transition-colors text-xs">
+                                        <td class="p-4 font-bold">${d.alert_name}</td>
+                                        <td class="p-4 font-mono text-muted text-[10px]">${d.fingerprint}…</td>
+                                        <td class="p-4 text-right"><span class="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold">${d.count}x</span></td>
+                                        <td class="p-4 text-right text-muted">${d.last_seen ? new Date(d.last_seen + 'Z').toLocaleTimeString() : '—'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>` : ''}
 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <!-- Left: Rules & Windows -->
@@ -35,16 +82,22 @@ export async function renderRulesView(container) {
                                             <th class="p-4">Rule Name</th>
                                             <th class="p-4">CEL Expression</th>
                                             <th class="p-4">Action</th>
+                                            <th class="p-4 text-center">Hits</th>
                                             <th class="p-4 text-right">Ops</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-white/5">
-                                        ${filters.length === 0 ? '<tr><td colspan="4" class="p-10 text-center text-muted italic text-xs">No filter rules defined.</td></tr>' : ''}
+                                        ${filters.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-muted italic text-xs">No filter rules defined.</td></tr>' : ''}
                                         ${filters.map(f => `
                                             <tr class="hover:bg-white/5 transition-colors text-xs">
                                                 <td class="p-4 font-bold">${f.name}</td>
                                                 <td class="p-4"><code class="text-accent-primary bg-black/30 px-2 py-1 rounded">${f.expression}</code></td>
                                                 <td class="p-4"><span class="badge ${f.action === 'discard' ? 'badge-sev1' : 'badge-sev3'}">${f.action}</span></td>
+                                                <td class="p-4 text-center">
+                                                    ${(stats.filter_stats[f.name] || 0) > 0
+                                                        ? `<span class="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/30 rounded-full text-[9px] font-bold">${stats.filter_stats[f.name]}x</span>`
+                                                        : '<span class="text-muted text-[10px]">0</span>'}
+                                                </td>
                                                 <td class="p-4 text-right">
                                                     <button class="delete-filter-btn text-accent-danger hover:underline" data-name="${f.name}">Delete</button>
                                                 </td>
@@ -68,16 +121,22 @@ export async function renderRulesView(container) {
                                             <th class="p-4">Window ID</th>
                                             <th class="p-4">Scope (CEL)</th>
                                             <th class="p-4">End Time (UTC)</th>
+                                            <th class="p-4 text-center">Suppressed</th>
                                             <th class="p-4 text-right">Ops</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-white/5">
-                                        ${windows.length === 0 ? '<tr><td colspan="4" class="p-10 text-center text-muted italic text-xs">No active maintenance windows.</td></tr>' : ''}
+                                        ${windows.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-muted italic text-xs">No active maintenance windows.</td></tr>' : ''}
                                         ${windows.map(w => `
                                             <tr class="hover:bg-white/5 transition-colors text-xs">
                                                 <td class="p-4 font-bold">${w.id}</td>
                                                 <td class="p-4"><code class="text-accent-warning bg-black/30 px-2 py-1 rounded">${w.query}</code></td>
                                                 <td class="p-4 text-muted">${new Date(w.end_time).toLocaleString()}</td>
+                                                <td class="p-4 text-center">
+                                                    ${(stats.maintenance_stats[w.id] || 0) > 0
+                                                        ? `<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-full text-[9px] font-bold">${stats.maintenance_stats[w.id]}x</span>`
+                                                        : '<span class="text-muted text-[10px]">0</span>'}
+                                                </td>
                                                 <td class="p-4 text-right">
                                                     <button class="delete-window-btn text-accent-danger hover:underline" data-id="${w.id}">End Now</button>
                                                 </td>

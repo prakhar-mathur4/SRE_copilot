@@ -59,6 +59,7 @@ export const state = {
         search: '',
         severity: 'all'
     },
+    activityLog: [],   // rolling buffer of last 30 WS events for Dashboard feed
     theme: localStorage.getItem('theme') || 'light'
 }
 

@@ -1,26 +1,36 @@
 import { state } from '../utils/state';
+import { fetchNoiseStats } from '../utils/api';
 
-export function renderDashboardView(container) {
+export async function renderDashboardView(container) {
     const envs = state.environments || [];
 
-    // Helper for dummy sparklines
-    const generateSparkline = (colorClass) => {
-        const points = Array.from({length: 12}, () => Math.floor(Math.random() * 40) + 10);
-        const max = Math.max(...points) || 1;
-        const svgPoints = points.map((p, i) => `${i * 10},${40 - (p/max)*30}`).join(' ');
-        
-        // Map tailwind class to generic hex for SVG stroke (simplified)
-        let hex = '#6366f1'; // Primary default
-        if (colorClass.includes('green')) hex = '#10b981';
-        if (colorClass.includes('orange')) hex = '#f59e0b';
-        if (colorClass.includes('red')) hex = '#ef4444';
-        if (colorClass.includes('purple')) hex = '#8b5cf6';
+    // Fetch real noise stats
+    let noiseStats = { noise_reduction_pct: 0, total_received: 0, total_dropped: 0, dedup_details: [] };
+    try { noiseStats = await fetchNoiseStats(); } catch (_) {}
 
-        return `<svg viewBox="0 0 110 40" class="w-full h-8 overflow-visible">
-            <polyline points="${svgPoints}" fill="none" stroke="${hex}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M0,40 L${svgPoints} L110,40 Z" fill="${hex}" opacity="0.1" />
-        </svg>`;
-    };
+    // Compute real KPIs from state.incidents
+    const allInc       = state.incidents || [];
+    const resolved     = allInc.filter(i => i.status === 'resolved');
+    const withRunbook  = allInc.filter(i => i.runbook_executed);
+    const today        = new Date(); today.setHours(0,0,0,0);
+    const todayInc     = allInc.filter(i => new Date(i.start_time) >= today);
+
+    // MTTR — avg minutes from start_time to last_updated for resolved incidents
+    let mttrStr = '—';
+    if (resolved.length > 0) {
+        const avgMs = resolved.reduce((sum, i) => sum + (new Date(i.last_updated) - new Date(i.start_time)), 0) / resolved.length;
+        const mins  = Math.round(avgMs / 60000);
+        mttrStr     = mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h ${mins%60}m`;
+    }
+
+    // Auto-mitigated %
+    const autoMitPct = allInc.length > 0 ? Math.round(withRunbook.length / allInc.length * 100) : 0;
+
+    // Silent Killers — incidents with highest dedup_count (most re-fired)
+    const silentKillers = [...allInc]
+        .filter(i => (i.dedup_count || 0) > 0)
+        .sort((a, b) => (b.dedup_count || 0) - (a.dedup_count || 0))
+        .slice(0, 5);
 
     container.innerHTML = `
         <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full min-h-0 overflow-y-auto pb-10">
@@ -36,31 +46,28 @@ export function renderDashboardView(container) {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-light"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                             Noise Reduction
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">98.2<span class="text-lg text-primary-light">%</span></div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">1,432 alerts -> 12 incidents</div>
+                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${noiseStats.noise_reduction_pct}<span class="text-lg text-primary-light">%</span></div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">${noiseStats.total_received} alerts → ${noiseStats.total_received - noiseStats.total_dropped} processed</div>
                     </div>
-                    
+
                     <div class="pane p-5 relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div class="text-[10px] uppercase font-bold text-muted tracking-widest mb-2 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                            AI Tokens Used
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            Incidents Today
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">14.2<span class="text-lg text-purple-500">k</span></div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">~$0.42 spent today</div>
+                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${todayInc.length}<span class="text-lg text-purple-500"> total</span></div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">${todayInc.filter(i => i.status !== 'resolved').length} still active, ${todayInc.filter(i => i.status === 'resolved').length} resolved</div>
                     </div>
 
                     <div class="pane p-5 relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div class="text-[10px] uppercase font-bold text-muted tracking-widest mb-2 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-alert-green"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                            MTTR Trend
+                            Avg MTTR
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">12<span class="text-lg text-alert-green">m</span></div>
-                        <div class="text-[9px] text-alert-green mt-2 font-mono flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
-                            34% faster this week
-                        </div>
+                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${mttrStr}</div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">from ${resolved.length} resolved incident${resolved.length !== 1 ? 's' : ''}</div>
                     </div>
 
                     <div class="pane p-5 relative overflow-hidden group">
@@ -69,8 +76,8 @@ export function renderDashboardView(container) {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                             Auto-Mitigated
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">89<span class="text-lg text-blue-500">%</span></div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">Runbooks applied automatically</div>
+                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${autoMitPct}<span class="text-lg text-blue-500">%</span></div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">${withRunbook.length} of ${allInc.length} incident${allInc.length !== 1 ? 's' : ''} auto-runbooked</div>
                     </div>
                 </div>
 
@@ -124,58 +131,44 @@ export function renderDashboardView(container) {
                 </div>
             </div>
 
-            <!-- Right Column: AI Ticker & Radar -->
+            <!-- Right Column: Activity Feed & Storm Radar -->
             <div class="xl:col-span-3 flex flex-col gap-6">
-                <!-- Keep the AI ticker and radar identical -->
                 <div class="pane flex flex-col h-[60%]">
                     <div class="pane-header flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-light"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                        AI Activity Feed
+                        Live Activity Feed
                     </div>
-                    <div class="p-4 flex-grow overflow-hidden relative">
-                        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-surface-light dark:to-surface-dark z-10 pointer-events-none"></div>
-                        <div class="flex flex-col gap-3 text-[10px] font-mono absolute bottom-4 left-4 right-4 animate-[scroll-up_20s_linear_infinite]">
-                            <div class="text-muted"><span class="text-primary-light">[14:02:11]</span> Evaluated alert 'HighMemoryUsage' -> Ignored (Threshold match)</div>
-                            <div class="text-muted"><span class="text-primary-light">[14:05:32]</span> Deduplicated 4 similar network latency events from Minikube.</div>
-                            <div class="text-muted"><span class="text-primary-light">[14:12:05]</span> Fetched diagnostics for auth-service (Pod Restarting).</div>
-                            <div class="text-alert-green"><span class="text-primary-light">[14:12:09]</span> RCA Generation Complete (ID: a7f89b). Mitigation proposed.</div>
-                            <div class="text-muted"><span class="text-primary-light">[14:18:44]</span> Cleaned up 12 stale incidents from ledger.</div>
-                            <div class="text-muted"><span class="text-primary-light">[14:22:10]</span> Connectivity probe succeeded for Prom-VM-01.</div>
-                            <div class="text-blue-500"><span class="text-primary-light">[14:30:00]</span> Runbook 'Restart Deployment' executed automatically.</div>
-                            <div class="text-muted"><span class="text-primary-light">[14:35:12]</span> Evaluated alert 'CPUThrottlingHigh' -> Suppressed by rules engine.</div>
-                        </div>
+                    <div class="p-4 flex-grow overflow-y-auto flex flex-col gap-2" id="dashboard-activity-feed">
+                        ${state.activityLog.length === 0
+                            ? `<div class="text-[10px] text-muted italic text-center mt-6">Waiting for events...</div>`
+                            : state.activityLog.map(e => `
+                                <div class="flex gap-2 text-[10px] font-mono">
+                                    <span class="text-primary-light shrink-0">[${e.ts}]</span>
+                                    <span class="${e.color}">${e.msg}</span>
+                                </div>`).join('')
+                        }
                     </div>
                 </div>
 
                 <div class="pane flex flex-col h-[40%]">
                     <div class="pane-header text-alert-red flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                        Silent Killers Radar
+                        Storm Radar — Most Suppressed
                     </div>
-                    <div class="p-4 overflow-y-auto">
-                        <div class="flex flex-col gap-3">
-                            <div class="flex justify-between items-center text-[10px]">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-alert-orange"></span>
-                                    <span class="font-bold font-mono">checkout-service-pod</span>
-                                </div>
-                                <span class="text-muted">4 OOMKills</span>
-                            </div>
-                            <div class="flex justify-between items-center text-[10px]">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-alert-orange"></span>
-                                    <span class="font-bold font-mono">postgres-vm-01</span>
-                                </div>
-                                <span class="text-muted">High I/O Wait</span>
-                            </div>
-                            <div class="flex justify-between items-center text-[10px]">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-alert-orange"></span>
-                                    <span class="font-bold font-mono">frontend-deployment</span>
-                                </div>
-                                <span class="text-muted">CPU Throttling</span>
-                            </div>
-                        </div>
+                    <div class="p-4 overflow-y-auto flex-grow">
+                        ${silentKillers.length === 0
+                            ? `<div class="text-[10px] text-muted italic text-center mt-4">No storm protection hits yet.</div>`
+                            : `<div class="flex flex-col gap-3">
+                                ${silentKillers.map(i => `
+                                    <div class="flex justify-between items-center text-[10px]">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-alert-orange shrink-0"></span>
+                                            <span class="font-bold font-mono truncate">${i.alert_name}</span>
+                                        </div>
+                                        <span class="px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold shrink-0 ml-2">${i.dedup_count}x</span>
+                                    </div>`).join('')}
+                               </div>`
+                        }
                     </div>
                 </div>
             </div>
@@ -258,10 +251,20 @@ export function renderDashboardView(container) {
             // Subscribe to background refreshes (triggered by main.js every 5s)
             const unsub = subscribe((newState) => {
                 if (newState.view !== 'dashboard') {
-                    unsub(); // Cleanup subscription when navigating away
+                    unsub();
                     return;
                 }
                 refreshGraphs(newState.environments);
+
+                // Live-patch the activity feed without re-rendering the page
+                const feedEl = document.getElementById('dashboard-activity-feed');
+                if (feedEl && newState.activityLog?.length > 0) {
+                    feedEl.innerHTML = newState.activityLog.map(e => `
+                        <div class="flex gap-2 text-[10px] font-mono">
+                            <span class="text-primary-light shrink-0">[${e.ts}]</span>
+                            <span class="${e.color}">${e.msg}</span>
+                        </div>`).join('');
+                }
             });
 
         });

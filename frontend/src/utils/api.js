@@ -118,6 +118,12 @@ export async function deleteMaintenance(id) {
     return fetch(`${API_BASE}/maintenance/${id}`, { method: 'DELETE' });
 }
 
+// Noise Reduction Stats
+export async function fetchNoiseStats() {
+    const res = await fetch(`${API_BASE}/noise/stats`);
+    return await res.json();
+}
+
 // CEL Evaluation
 export async function evaluateCel(expression, alert) {
     const res = await fetch(`${API_BASE}/cel/evaluate`, {

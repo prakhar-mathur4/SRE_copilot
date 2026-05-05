@@ -6,7 +6,6 @@ Detects resolutions when alerts disappear from the active list.
 """
 import asyncio
 import logging
-from typing import Set
 
 from bot.models import AlertData
 
@@ -60,16 +59,16 @@ async def _poll_once():
             continue
 
         raw_alerts = await provider.poll_alerts()
-        current_fingerprints: Set[str] = set()
+        current_alerts: dict = {}  # Alertmanager fingerprint → full raw alert dict
 
         for raw in raw_alerts:
             fp = raw.get("fingerprint", "")
             if not fp:
                 continue
-            current_fingerprints.add(fp)
+            current_alerts[fp] = raw
 
             # Only process alerts we haven't seen in the last cycle
-            if fp not in provider._active_fingerprints:
+            if fp not in provider._active_alerts:
                 alert = _convert_to_alert_data(raw, provider_id)
                 logger.info(
                     f"[Poller] New alert from {provider_id}: "
@@ -80,18 +79,20 @@ async def _poll_once():
                     asyncio.create_task(process_alert_background(alert))
 
         # Detect resolutions: alerts present last cycle but gone now
-        resolved_fingerprints = provider._active_fingerprints - current_fingerprints
+        resolved_fingerprints = set(provider._active_alerts.keys()) - set(current_alerts.keys())
         for fp in resolved_fingerprints:
-            logger.info(f"[Poller] Alert resolved in {provider_id}: fp={fp}")
-            resolved_alert = AlertData(
-                status="resolved",
-                labels={"alertmanager_source": provider_id},
-                annotations={},
-                startsAt="",
-                endsAt="",
-                generatorURL="",
-                fingerprint=fp,
-            )
+            original_raw = provider._active_alerts[fp]
+            alert_name = original_raw.get("labels", {}).get("alertname", "unknown")
+            logger.info(f"[Poller] Alert resolved in {provider_id}: {alert_name} (fp={fp})")
+
+            # Reconstruct with original labels so calculate_fingerprint produces the
+            # same SHA-256 hash as the firing alert, ensuring the right incident is resolved
+            resolved_alert = _convert_to_alert_data(original_raw, provider_id)
+            resolved_alert.status = "resolved"
+            resolved_alert.endsAt = original_raw.get("endsAt", "")
+
+            # Route through noise reducer so mark_resolved() clears active_fingerprints
+            noise_reducer.process_incoming_alert(resolved_alert)
             asyncio.create_task(process_alert_background(resolved_alert))
 
-        provider._active_fingerprints = current_fingerprints
+        provider._active_alerts = current_alerts
