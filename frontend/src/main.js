@@ -43,6 +43,15 @@ async function init() {
     // Fallback poll — only fires when WebSocket is down, self-heals stale state
     setInterval(() => { if (!state.wsConnected) fetchIncidents(); }, 30000);
 
+    // Time column refresh — re-renders Active Incidents table every 60s so
+    // relative timestamps ("5m ago") stay accurate without a full page reload
+    setInterval(() => {
+        if (state.view === 'active') {
+            const container = document.getElementById('main-view');
+            if (container) renderActiveIncidentsView(container);
+        }
+    }, 60000);
+
     // Real-time Updates
     connectWebSocket((data) => {
         // Push to activity log for Dashboard feed (silent — no full re-render)
