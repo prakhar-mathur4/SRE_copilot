@@ -5,8 +5,9 @@ Implements fingerprinting, CEL filtering, and maintenance windows.
 import hashlib
 import logging
 import json
-from datetime import datetime
-from typing import List, Set, Dict, Optional
+from datetime import datetime, timedelta
+from typing import List, Set, Dict, Optional, Deque
+from collections import deque
 import celpy
 from bot.models import AlertData, FilterRule, MaintenanceWindow
 
@@ -28,6 +29,8 @@ class NoiseReducer:
 
         # --- Stats counters ---
         self.total_received: int = 0            # every alert that enters the pipeline
+        # Rolling 24-hour window — stores UTC timestamps of every received alert
+        self._received_timestamps: Deque[datetime] = deque()
 
         self.dedup_count: int = 0
         # fingerprint -> {alert_name, count, last_seen}
@@ -123,8 +126,13 @@ class NoiseReducer:
     def get_stats(self) -> dict:
         total_dropped = self.dedup_count + self.filter_drop_count + self.maintenance_suppress_count
         noise_pct = round((total_dropped / self.total_received * 100), 1) if self.total_received > 0 else 0.0
+        # Prune stale entries before counting
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        while self._received_timestamps and self._received_timestamps[0] < cutoff:
+            self._received_timestamps.popleft()
         return {
             "total_received": self.total_received,
+            "received_last_24h": len(self._received_timestamps),
             "total_dropped": total_dropped,
             "noise_reduction_pct": noise_pct,
             "total_deduplicated": self.dedup_count,
@@ -161,6 +169,12 @@ class NoiseReducer:
         """
         alert_name = alert.labels.get('alertname', 'unknown')
         self.total_received += 1
+        now_ts = datetime.utcnow()
+        self._received_timestamps.append(now_ts)
+        # Prune entries older than 24 hours
+        cutoff = now_ts - timedelta(hours=24)
+        while self._received_timestamps and self._received_timestamps[0] < cutoff:
+            self._received_timestamps.popleft()
 
         # 1. Maintenance Check
         window_id_hit: list = []
