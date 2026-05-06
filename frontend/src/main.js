@@ -71,7 +71,8 @@ async function init() {
                         last_updated: new Date().toISOString(),
                     });
                 } else {
-                    // Brand-new incident — full fetch needed to get the complete object
+                    // Brand-new incident — full fetch needed to get the complete object.
+                    // fetchIncidents() is debounced so 10 new alerts → one request.
                     fetchIncidents();
                 }
                 break;
@@ -91,8 +92,9 @@ async function init() {
     });
 
     // Subscribe to state changes to trigger re-renders
-    let currentView      = state.view;
-    let incidentVersion  = state.incidentVersion;
+    let currentView     = state.view;
+    let incidentVersion = state.incidentVersion;
+    let renderTimer     = null;
 
     subscribe((newState) => {
         renderHeader();
@@ -101,10 +103,20 @@ async function init() {
         const viewChanged      = currentView     !== newState.view;
         const incidentsChanged = incidentVersion !== newState.incidentVersion;
 
-        if (viewChanged || (newState.view === 'active' && incidentsChanged)) {
+        if (viewChanged) {
+            // Navigation is immediate — no debounce
+            clearTimeout(renderTimer);
             currentView     = newState.view;
             incidentVersion = newState.incidentVersion;
             renderView(newState.view);
+        } else if (newState.view === 'active' && incidentsChanged) {
+            // Data update on active view — debounce to collapse burst of patches
+            // into a single DOM rebuild after the last event settles
+            clearTimeout(renderTimer);
+            renderTimer = setTimeout(() => {
+                incidentVersion = state.incidentVersion;
+                renderView('active');
+            }, 150);
         }
     });
 
