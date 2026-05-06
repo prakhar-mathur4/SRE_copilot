@@ -184,13 +184,15 @@ class NoiseReducer:
         Returns the fingerprint if the alert should proceed, None otherwise.
         """
         alert_name = alert.labels.get('alertname', 'unknown')
-        self.total_received += 1
-        now_ts = datetime.utcnow()
-        self._received_timestamps.append(now_ts)
-        # Prune entries older than 24 hours
-        cutoff = now_ts - timedelta(hours=24)
-        while self._received_timestamps and self._received_timestamps[0] < cutoff:
-            self._received_timestamps.popleft()
+
+        # Only count firing alerts — resolved events are closures, not new alerts
+        if alert.status != "resolved":
+            self.total_received += 1
+            now_ts = datetime.utcnow()
+            self._received_timestamps.append(now_ts)
+            cutoff = now_ts - timedelta(hours=24)
+            while self._received_timestamps and self._received_timestamps[0] < cutoff:
+                self._received_timestamps.popleft()
 
         # 1. Maintenance Check
         window_id_hit: list = []
