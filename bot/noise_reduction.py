@@ -31,6 +31,8 @@ class NoiseReducer:
         self.total_received: int = 0            # every alert that enters the pipeline
         # Rolling 24-hour window — stores UTC timestamps of every received alert
         self._received_timestamps: Deque[datetime] = deque()
+        # Rolling 24-hour window — stores UTC timestamps of every suppressed alert
+        self._dropped_timestamps: Deque[datetime] = deque()
 
         self.dedup_count: int = 0
         # fingerprint -> {alert_name, count, last_seen}
@@ -130,9 +132,15 @@ class NoiseReducer:
         cutoff = datetime.utcnow() - timedelta(hours=24)
         while self._received_timestamps and self._received_timestamps[0] < cutoff:
             self._received_timestamps.popleft()
+        while self._dropped_timestamps and self._dropped_timestamps[0] < cutoff:
+            self._dropped_timestamps.popleft()
+        received_24h = len(self._received_timestamps)
+        dropped_24h  = len(self._dropped_timestamps)
         return {
             "total_received": self.total_received,
-            "received_last_24h": len(self._received_timestamps),
+            "received_last_24h": received_24h,
+            "dropped_last_24h": dropped_24h,
+            "processed_last_24h": received_24h - dropped_24h,
             "total_dropped": total_dropped,
             "noise_reduction_pct": noise_pct,
             "total_deduplicated": self.dedup_count,
@@ -150,6 +158,14 @@ class NoiseReducer:
             "filter_stats": self.filter_stats,
             "maintenance_stats": self.maintenance_stats,
         }
+
+    def _record_drop(self) -> None:
+        """Stamp a suppression in the 24-hour rolling window."""
+        now_ts = datetime.utcnow()
+        self._dropped_timestamps.append(now_ts)
+        cutoff = now_ts - timedelta(hours=24)
+        while self._dropped_timestamps and self._dropped_timestamps[0] < cutoff:
+            self._dropped_timestamps.popleft()
 
     def is_duplicate(self, fingerprint: str) -> bool:
         """Check if this is an exact match of an active alert (Storm Protection)."""
@@ -181,6 +197,7 @@ class NoiseReducer:
         if self.is_suppressed_by_maintenance(alert, window_id_hit):
             logger.info(f"Alert suppressed by maintenance window: {alert_name}")
             self.maintenance_suppress_count += 1
+            self._record_drop()
             for wid in window_id_hit:
                 self.maintenance_stats[wid] = self.maintenance_stats.get(wid, 0) + 1
             return None
@@ -189,6 +206,7 @@ class NoiseReducer:
         rule_name_hit: list = []
         if self.should_drop_by_filter(alert, rule_name_hit):
             self.filter_drop_count += 1
+            self._record_drop()
             for rname in rule_name_hit:
                 self.filter_stats[rname] = self.filter_stats.get(rname, 0) + 1
             return None
@@ -203,6 +221,7 @@ class NoiseReducer:
         if self.is_duplicate(fingerprint):
             logger.info(f"Alert dropped as duplicate (Storm Protection): {alert_name}")
             self.dedup_count += 1
+            self._record_drop()
             detail = self.dedup_details.setdefault(fingerprint, {"alert_name": alert_name, "count": 0, "last_seen": ""})
             detail["count"] += 1
             detail["last_seen"] = datetime.utcnow().isoformat()

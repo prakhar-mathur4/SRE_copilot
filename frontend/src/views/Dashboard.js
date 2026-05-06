@@ -40,7 +40,7 @@ export async function renderDashboardView(container) {
                             Alerts (Last 24h)
                         </div>
                         <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${noiseStats.received_last_24h ?? 0}</div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">${noiseStats.total_dropped ?? 0} suppressed &nbsp;·&nbsp; ${(noiseStats.received_last_24h ?? 0) - Math.min(noiseStats.total_dropped ?? 0, noiseStats.received_last_24h ?? 0)} processed</div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">${noiseStats.dropped_last_24h ?? 0} suppressed &nbsp;·&nbsp; ${noiseStats.processed_last_24h ?? 0} processed</div>
                     </div>
 
                     <!-- KPI 2: Active Critical -->
