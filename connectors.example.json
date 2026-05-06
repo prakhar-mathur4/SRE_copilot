@@ -1,0 +1,20 @@
+[
+  {
+    "id": "local-01",
+    "name": "Local Machine",
+    "type": "local_machine",
+    "url": "localhost"
+  },
+  {
+    "id": "prometheus-01",
+    "name": "Prometheus",
+    "type": "prometheus",
+    "url": "http://<your-prometheus-host>:9090"
+  },
+  {
+    "id": "alertmanager-01",
+    "name": "Alertmanager",
+    "type": "alertmanager",
+    "url": "http://<your-alertmanager-host>:9093"
+  }
+]

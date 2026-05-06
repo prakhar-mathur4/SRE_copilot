@@ -21,3 +21,7 @@ demo/
 agent/
 prompts/
 
+# Local infrastructure config — contains environment-specific URLs and IPs.
+# Copy connectors.example.json to connectors.json and fill in your values.
+connectors.json
+
