@@ -39,35 +39,62 @@ async function init() {
     
     // Background Refresh
     setInterval(updateHealth, 5000);
-    
+
+    // Fallback poll — only fires when WebSocket is down, self-heals stale state
+    setInterval(() => { if (!state.wsConnected) fetchIncidents(); }, 30000);
+
     // Real-time Updates
     connectWebSocket((data) => {
-        if (data.type === 'INCIDENT_UPDATE' || data.type === 'EVENT_ADDED' || data.type === 'RCA_COMPLETE' || data.type === 'RUNBOOK_EXECUTED') {
-            fetchIncidents();
-        }
-        // Push to activity log for Dashboard feed
+        // Push to activity log for Dashboard feed (silent — no full re-render)
         const entry = buildActivityEntry(data);
         if (entry) {
-            const log = [entry, ...state.activityLog].slice(0, 30);
-            updateState({ activityLog: log }, true); // silent = don't trigger full re-render
+            updateState({ activityLog: [entry, ...state.activityLog].slice(0, 30) }, true);
+        }
+
+        // Patch local state directly from WS event — no HTTP round trip needed
+        switch (data.type) {
+            case 'INCIDENT_UPDATE': {
+                const exists = state.incidents.some(i => i.incident_id === data.incident_id);
+                if (exists) {
+                    patchIncident(data.incident_id, {
+                        status:       data.status,
+                        severity:     data.severity,
+                        last_updated: new Date().toISOString(),
+                    });
+                } else {
+                    // Brand-new incident — full fetch needed to get the complete object
+                    fetchIncidents();
+                }
+                break;
+            }
+            case 'RCA_COMPLETE':
+                patchIncident(data.incident_id, { rca_completed: true, rca_report: data.rca });
+                break;
+            case 'RUNBOOK_EXECUTED':
+                patchIncident(data.incident_id, { runbook_executed: true, runbook_action: data.action });
+                break;
+            case 'EVENT_ADDED': {
+                const inc = state.incidents.find(i => i.incident_id === data.incident_id);
+                if (inc) patchIncident(data.incident_id, { event_count: (inc.event_count || 0) + 1 });
+                break;
+            }
         }
     });
 
     // Subscribe to state changes to trigger re-renders
-    let currentView = state.view;
-    let incidentCount = state.incidents.length;
-    
+    let currentView      = state.view;
+    let incidentVersion  = state.incidentVersion;
+
     subscribe((newState) => {
         renderHeader();
         renderSidebar();
-        
-        // Re-render the view if navigation changed OR if we got new incidents while on the active view
-        const viewChanged = currentView !== newState.view;
-        const incidentsChanged = incidentCount !== newState.incidents.length;
-        
+
+        const viewChanged      = currentView     !== newState.view;
+        const incidentsChanged = incidentVersion !== newState.incidentVersion;
+
         if (viewChanged || (newState.view === 'active' && incidentsChanged)) {
-            currentView = newState.view;
-            incidentCount = newState.incidents.length;
+            currentView     = newState.view;
+            incidentVersion = newState.incidentVersion;
             renderView(newState.view);
         }
     });
@@ -108,6 +135,13 @@ function renderView(view) {
         default:
             renderDashboardView(container);
     }
+}
+
+function patchIncident(incident_id, patch) {
+    const incidents = state.incidents.map(i =>
+        i.incident_id === incident_id ? { ...i, ...patch } : i
+    );
+    updateState({ incidents, incidentVersion: state.incidentVersion + 1 });
 }
 
 function buildActivityEntry(data) {

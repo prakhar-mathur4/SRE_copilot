@@ -39,25 +39,38 @@ export async function fetchTimeSeries(providerId) {
     }
 }
 
+// Exponential backoff state — module-level so it persists across reconnects
+let _wsRetryDelay = 1000;       // starts at 1s
+const WS_MAX_RETRY_MS = 60000;  // caps at 60s
+
 export function connectWebSocket(onMessage) {
     const ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
+        _wsRetryDelay = 1000; // reset delay on successful connection
         updateState({ wsConnected: true });
-        console.log("WebSocket connected");
     };
 
     ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log("WS Message:", data);
-        if (onMessage) onMessage(data);
+        try {
+            const data = JSON.parse(event.data);
+            if (onMessage) onMessage(data);
+        } catch (e) {
+            console.error('WS message parse error', e);
+        }
     };
 
     ws.onclose = () => {
         updateState({ wsConnected: false });
-        console.log("WebSocket disconnected, retrying...");
-        setTimeout(() => connectWebSocket(onMessage), 3000);
+        // Add random jitter (0–1s) to avoid thundering herd when many tabs reconnect
+        const jitter = Math.random() * 1000;
+        const delay  = _wsRetryDelay + jitter;
+        _wsRetryDelay = Math.min(_wsRetryDelay * 2, WS_MAX_RETRY_MS);
+        console.warn(`WS disconnected. Retrying in ${Math.round(delay / 1000)}s…`);
+        setTimeout(() => connectWebSocket(onMessage), delay);
     };
+
+    ws.onerror = () => ws.close(); // let onclose handle the retry
 
     return ws;
 }
