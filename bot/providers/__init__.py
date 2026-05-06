@@ -20,8 +20,14 @@ class ProviderRegistry:
     def load_connectors(self):
         """Load and initialize all connectors from JSON."""
         if not os.path.exists(self.config_path):
-            logger.warning(f"No connectors.json found at {self.config_path}. Initializing empty.")
-            return
+            example_path = os.path.join(os.getcwd(), "connectors.example.json")
+            if os.path.exists(example_path):
+                import shutil
+                shutil.copy(example_path, self.config_path)
+                logger.info(f"connectors.json not found — created from connectors.example.json. Edit it to add your infrastructure.")
+            else:
+                logger.warning("Neither connectors.json nor connectors.example.json found. Starting with no connectors.")
+                return
 
         try:
             with open(self.config_path, "r") as f:
