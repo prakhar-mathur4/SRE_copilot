@@ -9,22 +9,13 @@ export async function renderDashboardView(container) {
     try { noiseStats = await fetchNoiseStats(); } catch (_) {}
 
     // Compute real KPIs from state.incidents
-    const allInc       = state.incidents || [];
-    const resolved     = allInc.filter(i => i.status === 'resolved');
-    const withRunbook  = allInc.filter(i => i.runbook_executed);
-    const today        = new Date(); today.setHours(0,0,0,0);
-    const todayInc     = allInc.filter(i => new Date(i.start_time) >= today);
+    const allInc    = state.incidents || [];
+    const activeInc = allInc.filter(i => i.status !== 'resolved');
 
-    // MTTR — avg minutes from start_time to last_updated for resolved incidents
-    let mttrStr = '—';
-    if (resolved.length > 0) {
-        const avgMs = resolved.reduce((sum, i) => sum + (new Date(i.last_updated) - new Date(i.start_time)), 0) / resolved.length;
-        const mins  = Math.round(avgMs / 60000);
-        mttrStr     = mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h ${mins%60}m`;
-    }
-
-    // Auto-mitigated %
-    const autoMitPct = allInc.length > 0 ? Math.round(withRunbook.length / allInc.length * 100) : 0;
+    // Active alerts by severity (critical+page / warning / everything else)
+    const critCount = activeInc.filter(i => ['critical','page'].includes((i.severity||'').toLowerCase())).length;
+    const warnCount = activeInc.filter(i => (i.severity||'').toLowerCase() === 'warning').length;
+    const infoCount = activeInc.filter(i => !['critical','page','warning'].includes((i.severity||'').toLowerCase())).length;
 
     // Silent Killers — incidents with highest dedup_count (most re-fired)
     const silentKillers = [...allInc]
@@ -40,45 +31,51 @@ export async function renderDashboardView(container) {
                 
                 <!-- KPI Top Bar -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                    <!-- KPI 1: Total alerts last 24h -->
                     <div class="pane p-5 relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-br from-primary-light/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div class="text-[10px] uppercase font-bold text-muted tracking-widest mb-2 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-light"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                            Noise Reduction
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-light"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            Alerts (Last 24h)
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${noiseStats.noise_reduction_pct}<span class="text-lg text-primary-light">%</span></div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">${noiseStats.total_received} alerts → ${noiseStats.total_received - noiseStats.total_dropped} processed</div>
+                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${noiseStats.received_last_24h ?? 0}</div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">${noiseStats.total_dropped ?? 0} suppressed &nbsp;·&nbsp; ${(noiseStats.received_last_24h ?? 0) - Math.min(noiseStats.total_dropped ?? 0, noiseStats.received_last_24h ?? 0)} processed</div>
                     </div>
 
-                    <div class="pane p-5 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <!-- KPI 2: Active Critical -->
+                    <div class="pane p-5 relative overflow-hidden group border-l-2 border-l-red-500/50">
+                        <div class="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div class="text-[10px] uppercase font-bold text-muted tracking-widest mb-2 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                            Incidents Today
+                            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                            Active Critical
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${todayInc.length}<span class="text-lg text-purple-500"> total</span></div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">${todayInc.filter(i => i.status !== 'resolved').length} still active, ${todayInc.filter(i => i.status === 'resolved').length} resolved</div>
+                        <div class="text-3xl font-heading font-black text-red-400">${critCount}</div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">critical &amp; page severity</div>
                     </div>
 
-                    <div class="pane p-5 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <!-- KPI 3: Active Warning -->
+                    <div class="pane p-5 relative overflow-hidden group border-l-2 border-l-yellow-500/50">
+                        <div class="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div class="text-[10px] uppercase font-bold text-muted tracking-widest mb-2 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-alert-green"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                            Avg MTTR
+                            <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                            Active Warning
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${mttrStr}</div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">from ${resolved.length} resolved incident${resolved.length !== 1 ? 's' : ''}</div>
+                        <div class="text-3xl font-heading font-black text-yellow-400">${warnCount}</div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">warning severity</div>
                     </div>
 
-                    <div class="pane p-5 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <!-- KPI 4: Active Info / Other -->
+                    <div class="pane p-5 relative overflow-hidden group border-l-2 border-l-blue-500/50">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div class="text-[10px] uppercase font-bold text-muted tracking-widest mb-2 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                            Auto-Mitigated
+                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            Active Info
                         </div>
-                        <div class="text-3xl font-heading font-black text-text-light dark:text-text-dark">${autoMitPct}<span class="text-lg text-blue-500">%</span></div>
-                        <div class="text-[9px] text-muted mt-2 font-mono">${withRunbook.length} of ${allInc.length} incident${allInc.length !== 1 ? 's' : ''} auto-runbooked</div>
+                        <div class="text-3xl font-heading font-black text-blue-400">${infoCount}</div>
+                        <div class="text-[9px] text-muted mt-2 font-mono">info &amp; other severity</div>
                     </div>
+
                 </div>
 
                 <!-- Main Grid: Fleet Health Matrix -->
