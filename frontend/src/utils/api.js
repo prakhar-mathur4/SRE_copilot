@@ -6,14 +6,26 @@ import { state, updateState, notify } from './state';
 export const API_BASE = 'http://localhost:8000/api/v1';
 export const WS_URL = 'ws://localhost:8000/api/v1/ws/alerts';
 
+// Debounced fetch — collapses rapid bursts (e.g. 10 alerts at once) into one request.
+// Any call within 200ms of the previous one cancels the pending request and restarts the timer.
+let _fetchIncidentsTimer = null;
+let _fetchIncidentsVersion = 0;
+
 export async function fetchIncidents() {
-    try {
-        const res = await fetch(`${API_BASE}/incidents`);
-        const incidents = await res.json();
-        updateState({ incidents });
-    } catch (e) {
-        console.error("Failed to fetch incidents", e);
-    }
+    clearTimeout(_fetchIncidentsTimer);
+    _fetchIncidentsTimer = setTimeout(async () => {
+        const version = ++_fetchIncidentsVersion;
+        try {
+            const res = await fetch(`${API_BASE}/incidents`);
+            const incidents = await res.json();
+            // Only apply if no newer fetch has started since this one
+            if (version === _fetchIncidentsVersion) {
+                updateState({ incidents, incidentVersion: state.incidentVersion + 1 });
+            }
+        } catch (e) {
+            console.error("Failed to fetch incidents", e);
+        }
+    }, 200);
 }
 
 export async function updateHealth() {
