@@ -34,9 +34,9 @@ export default {
           DEFAULT: '#1E1B4B',
         },
         muted: {
-          light: '#e2e8f0',
-          dark: '#e2e8f0',
-          DEFAULT: '#e2e8f0',
+          light: '#64748b',  // slate-500 — readable on light backgrounds
+          dark: '#94a3b8',   // slate-400 — readable on dark backgrounds
+          DEFAULT: '#475569', // slate-600 — readable on both light and dark backgrounds
         },
         alert: {
           red: '#EF4444',

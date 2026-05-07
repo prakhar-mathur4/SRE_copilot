@@ -61,7 +61,7 @@ export const state = {
     },
     activityLog: [],      // rolling buffer of last 30 WS events for Dashboard feed
     incidentVersion: 0,   // increments on any incident data change, triggers re-render
-    theme: localStorage.getItem('theme') || 'light'
+    theme: 'dark'
 }
 
 // Simple event listener pattern for state changes
@@ -92,17 +92,6 @@ window.addEventListener('popstate', () => {
     notify();
 });
 
-export function toggleTheme() {
-    state.theme = state.theme === 'light' ? 'dark' : 'light';
-    localStorage.setItem('theme', state.theme);
-    applyTheme();
-    notify();
-}
-
 export function applyTheme() {
-    if (state.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.add('dark');
 }

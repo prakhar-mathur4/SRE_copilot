@@ -158,10 +158,10 @@ async function showYamlModal(name, ns) {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
-            <div class="flex-grow overflow-auto p-0 bg-[#0d1117] border-y border-white/5 shadow-inner">
-                <pre id="yaml-content" class="p-8 text-[11px] font-mono leading-relaxed text-primary-light/90">DECODING MANIFEST...</pre>
+            <div class="flex-grow overflow-auto p-0 terminal border-y border-surface-hover-dark shadow-inner rounded-none">
+                <pre id="yaml-content" class="p-8 text-[11px] font-mono leading-relaxed text-cyan-200/90">DECODING MANIFEST...</pre>
             </div>
-            <div class="p-6 flex justify-end bg-surface-hover-light/5">
+            <div class="p-6 flex justify-end bg-surface-hover-light/10 dark:bg-surface-hover-dark/10">
                 <button id="close-modal-btn" class="btn-primary h-11 px-10">Return to Registry</button>
             </div>
         </div>
