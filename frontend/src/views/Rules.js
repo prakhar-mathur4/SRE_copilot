@@ -43,7 +43,7 @@ export async function renderRulesView(container) {
                     <div class="pane-header">Active Storm Protection — Deduplicated Alerts</div>
                     <div class="p-0 overflow-auto">
                         <table class="w-full text-left border-collapse">
-                            <thead class="sticky top-0 bg-surface-color border-b border-white/5 text-[10px] uppercase text-muted font-bold">
+                            <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
                                 <tr>
                                     <th class="p-4">Alert Name</th>
                                     <th class="p-4">Fingerprint</th>
@@ -51,9 +51,9 @@ export async function renderRulesView(container) {
                                     <th class="p-4 text-right">Last Seen</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5">
+                            <tbody class="divide-y divide-surface-hover-light dark:divide-surface-hover-dark">
                                 ${stats.dedup_details.map(d => `
-                                    <tr class="hover:bg-white/5 transition-colors text-xs">
+                                    <tr class="hover:bg-surface-hover-light/50 dark:hover:bg-surface-hover-dark/50 transition-colors text-xs">
                                         <td class="p-4 font-bold">${d.alert_name}</td>
                                         <td class="p-4 font-mono text-muted text-[10px]">${d.fingerprint}…</td>
                                         <td class="p-4 text-right"><span class="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold">${d.count}x</span></td>
@@ -77,7 +77,7 @@ export async function renderRulesView(container) {
                             </div>
                             <div class="p-0 overflow-auto max-h-[400px]">
                                 <table class="w-full text-left border-collapse">
-                                    <thead class="sticky top-0 bg-surface-color border-b border-white/5 text-[10px] uppercase text-muted font-bold">
+                                    <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
                                         <tr>
                                             <th class="p-4">Rule Name</th>
                                             <th class="p-4">CEL Expression</th>
@@ -86,12 +86,12 @@ export async function renderRulesView(container) {
                                             <th class="p-4 text-right">Ops</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-white/5">
+                                    <tbody class="divide-y divide-surface-hover-light dark:divide-surface-hover-dark">
                                         ${filters.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-muted italic text-xs">No filter rules defined.</td></tr>' : ''}
                                         ${filters.map(f => `
-                                            <tr class="hover:bg-white/5 transition-colors text-xs">
+                                            <tr class="hover:bg-surface-hover-light/50 dark:hover:bg-surface-hover-dark/50 transition-colors text-xs">
                                                 <td class="p-4 font-bold">${f.name}</td>
-                                                <td class="p-4"><code class="text-accent-primary bg-black/30 px-2 py-1 rounded">${f.expression}</code></td>
+                                                <td class="p-4"><code class="text-accent-primary bg-surface-hover-light dark:bg-surface-hover-dark px-2 py-1 rounded">${f.expression}</code></td>
                                                 <td class="p-4"><span class="badge ${f.action === 'discard' ? 'badge-sev1' : 'badge-sev3'}">${f.action}</span></td>
                                                 <td class="p-4 text-center">
                                                     ${(stats.filter_stats[f.name] || 0) > 0
@@ -116,7 +116,7 @@ export async function renderRulesView(container) {
                             </div>
                             <div class="p-0 overflow-auto max-h-[400px]">
                                 <table class="w-full text-left border-collapse">
-                                    <thead class="sticky top-0 bg-surface-color border-b border-white/5 text-[10px] uppercase text-muted font-bold">
+                                    <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
                                         <tr>
                                             <th class="p-4">Window ID</th>
                                             <th class="p-4">Scope (CEL)</th>
@@ -125,12 +125,12 @@ export async function renderRulesView(container) {
                                             <th class="p-4 text-right">Ops</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-white/5">
+                                    <tbody class="divide-y divide-surface-hover-light dark:divide-surface-hover-dark">
                                         ${windows.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-muted italic text-xs">No active maintenance windows.</td></tr>' : ''}
                                         ${windows.map(w => `
-                                            <tr class="hover:bg-white/5 transition-colors text-xs">
+                                            <tr class="hover:bg-surface-hover-light/50 dark:hover:bg-surface-hover-dark/50 transition-colors text-xs">
                                                 <td class="p-4 font-bold">${w.id}</td>
-                                                <td class="p-4"><code class="text-accent-warning bg-black/30 px-2 py-1 rounded">${w.query}</code></td>
+                                                <td class="p-4"><code class="text-accent-warning bg-surface-hover-light dark:bg-surface-hover-dark px-2 py-1 rounded">${w.query}</code></td>
                                                 <td class="p-4 text-muted">${new Date(w.end_time).toLocaleString()}</td>
                                                 <td class="p-4 text-center">
                                                     ${(stats.maintenance_stats[w.id] || 0) > 0
@@ -157,7 +157,7 @@ export async function renderRulesView(container) {
                                 
                                 <div>
                                     <label class="text-[9px] font-bold text-muted uppercase mb-1 block">Expression</label>
-                                    <textarea id="cel-input" class="w-full h-24 bg-black/40 border border-white/10 rounded-lg p-3 font-mono text-xs focus:ring-1 ring-accent-primary outline-none" placeholder="labels.severity == 'warning'"></textarea>
+                                    <textarea id="cel-input" class="w-full h-24 bg-surface-hover-light dark:bg-surface-hover-dark border border-surface-hover-light dark:border-surface-hover-dark text-text-light dark:text-text-dark rounded-lg p-3 font-mono text-xs focus:ring-1 ring-accent-primary outline-none" placeholder="labels.severity == 'warning'"></textarea>
                                 </div>
 
                                 <button id="test-cel-btn" class="btn-primary w-full">Evaluate Logic</button>

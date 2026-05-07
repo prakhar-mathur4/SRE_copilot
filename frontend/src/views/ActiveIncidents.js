@@ -220,7 +220,7 @@ export function renderActiveIncidentsView(container) {
     const body = container.querySelector('#incidents-body');
     active.forEach(inc => {
         const row = document.createElement('tr');
-        row.className = 'border-b border-surface-hover-light dark:border-surface-hover-dark hover:bg-surface-hover-light/40 dark:hover:bg-surface-hover-dark/20 cursor-pointer transition-colors text-[13px]';
+        row.className = 'border-b border-surface-hover-light dark:border-surface-hover-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark/40 cursor-pointer transition-colors text-[13px]';
         row.innerHTML = `
             <td class="p-4 font-mono text-[11px] text-muted">${inc.incident_id.slice(0, 8)}</td>
             <td class="p-4"><span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span></td>

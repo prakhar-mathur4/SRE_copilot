@@ -73,7 +73,7 @@ export async function renderControlRoomView(container) {
                     </div>
 
                     <!-- Raw Content (Hidden by default) -->
-                    <div id="raw-content" class="hidden flex-grow overflow-auto terminal bg-black/20">
+                    <div id="raw-content" class="hidden flex-grow overflow-auto terminal">
                         <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (inc.diagnostics_failed ? 'ERROR: INFRASTRUCTURE UNREACHABLE' : 'No raw diagnostics available for this incident.')}</pre>
                     </div>
 
@@ -113,18 +113,18 @@ export async function renderControlRoomView(container) {
                     </div>
                 </div>
 
-                <!-- 3. Diagnostic Logs (Bento Unit) -->
-                <div class="md:col-span-3 row-span-4 bento-card overflow-hidden bg-slate-950">
-                    <div class="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-4 flex items-center justify-between">
+                <!-- 3. Diagnostic Logs (Bento Unit) — intentionally always dark like a terminal -->
+                <div class="md:col-span-3 row-span-4 bento-card overflow-hidden !bg-background-dark !border-surface-hover-dark">
+                    <div class="text-[10px] font-bold text-text-dark/40 uppercase tracking-widest mb-4 flex items-center justify-between">
                         <span>Diagnostic Stream</span>
                         <span class="flex h-2 w-2 rounded-full ${inc.diagnostics_failed ? 'bg-alert-red shadow-[0_0_8px_#EF4444]' : 'bg-alert-green animate-ping'}"></span>
                     </div>
-                    <div class="flex-grow terminal text-primary-light/80 p-0 shadow-none border-none overflow-x-hidden">
+                    <div class="flex-grow terminal text-primary-dark/80 p-0 shadow-none border-none overflow-x-hidden">
                         <div class="space-y-1">
-                            <div class="text-white/20">[00:00:01] PROBE: minikube-cluster-01</div>
-                            <div class="text-white/20">[00:00:02] CONTEXT: ${inc.context}</div>
-                            ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div class="break-words"><span class="text-white/20">[${new Date(e.timestamp).toLocaleTimeString()}]</span> ${e.description}</div>`).join('')}
-                            ${!inc.diagnostics_failed && !inc.rca_completed ? '<div class="animate-pulse text-primary-light">_</div>' : ''}
+                            <div class="text-text-dark/20">[00:00:01] PROBE: minikube-cluster-01</div>
+                            <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.context}</div>
+                            ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div class="break-words"><span class="text-text-dark/20">[${new Date(e.timestamp).toLocaleTimeString()}]</span> ${e.description}</div>`).join('')}
+                            ${!inc.diagnostics_failed && !inc.rca_completed ? '<div class="animate-pulse text-primary-dark">_</div>' : ''}
                         </div>
                     </div>
                 </div>
