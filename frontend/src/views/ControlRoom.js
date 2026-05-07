@@ -22,7 +22,12 @@ export async function renderControlRoomView(container) {
                 <!-- 1. Incident Info (Bento Unit) -->
                 <div class="md:col-span-3 row-span-2 bento-card border-l-4 border-l-primary-light dark:border-l-primary-dark">
                     <div class="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">INCIDENT ID</div>
-                    <div class="font-mono text-sm font-bold text-primary-light dark:text-primary-dark mb-4">${inc.incident_id}</div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="font-mono text-sm font-bold text-primary-light dark:text-primary-dark" title="${inc.incident_id}">${inc.incident_id.slice(0, 16)}…</span>
+                        <button id="copy-id-btn" title="Copy full ID" class="p-1 rounded hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark text-muted hover:text-text-light dark:hover:text-text-dark transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
                     
                     <div class="flex flex-col gap-4">
                         <div>
@@ -189,6 +194,18 @@ export async function renderControlRoomView(container) {
                 </div>
             </div>
         `;
+
+        // Copy incident ID to clipboard
+        container.querySelector('#copy-id-btn').onclick = async () => {
+            await navigator.clipboard.writeText(inc.incident_id);
+            const btn = container.querySelector('#copy-id-btn');
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            btn.classList.add('text-alert-green');
+            setTimeout(() => {
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                btn.classList.remove('text-alert-green');
+            }, 2000);
+        };
 
         // Tabs Logic
         const aiBtn      = container.querySelector('#view-ai-btn');
