@@ -67,11 +67,19 @@ class TimelineManager:
             self.add_event(incident_id, "Alert triggered", "Alertmanager")
         else:
             incident = self.incidents[incident_id]
+            prev_status = incident.status
             incident.status = status
             incident.last_updated = now
             if status == "resolved":
                 self.add_event(incident_id, "Alert resolved", "Alertmanager")
                 self.generate_report(incident_id)
+            elif status == "firing" and prev_status == "resolved":
+                # Alert re-fired after resolution — reset timestamps so the
+                # time column reflects this firing, not the original one
+                incident.start_time = now
+                if alert_starts_at:
+                    incident.alert_starts_at = alert_starts_at
+                self.add_event(incident_id, "Alert re-fired after resolution", "Alertmanager")
                 
         return self.incidents[incident_id]
 
