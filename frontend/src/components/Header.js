@@ -45,7 +45,7 @@ async function showDiagnosticModal() {
         <div class="pane w-full max-w-md shadow-2xl border-primary-light/20 bg-surface-light dark:bg-background-dark/90 backdrop-blur-xl">
             <div class="pane-header flex justify-between items-center h-12">
                 <span class="text-[10px] font-black tracking-widest uppercase text-primary-light">Diagnostic Signal Center</span>
-                <button id="close-diag" class="p-2 hover:text-alert-red transition-all">
+                <button id="close-diag" class="modal-close-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>

@@ -22,8 +22,10 @@ export function renderArchiveView(container) {
 
     container.innerHTML = `
         <div class="flex flex-col gap-6 h-full min-h-0">
-            <div class="pane flex flex-col min-h-0 shadow-xl border-surface-hover-light/50">
-                <div class="pane-header">Resolved Incidents Ledger</div>
+            <div class="pane flex flex-col flex-grow min-h-0 shadow-xl border-surface-hover-light/50">
+                <div class="pane-header flex items-center justify-between">
+                    <span>Post-Mortem Ledger <span class="text-text-light dark:text-text-dark font-black">${resolved.length}</span></span>
+                </div>
                 <div class="p-6 border-b border-surface-hover-light dark:border-surface-hover-dark flex flex-wrap gap-4 bg-surface-hover-light/10">
                     <div class="relative flex-grow">
                         <input type="text" id="archive-search" placeholder="Search by name, ID, or context..." value="${state.archiveFilters.search}" class="w-full bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-lg h-10 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 ring-primary-light/50 transition-all">
@@ -36,12 +38,12 @@ export function renderArchiveView(container) {
                     </select>
                 </div>
                 <div class="flex-grow overflow-auto p-6 flex flex-col gap-4">
-                    ${resolved.length === 0 ? '<div class="text-center p-20 text-muted-light italic">No historical records match the current filter criteria.</div>' : ''}
+                    ${resolved.length === 0 ? '<div class="empty-state">No Records Match Filter Criteria</div>' : ''}
                     ${resolved.map(inc => `
                         <div class="pane hover:border-primary-light dark:hover:border-primary-dark transition-all cursor-pointer group hover:translate-x-1 duration-300 shadow-sm hover:shadow-md">
                             <div class="p-5 flex items-center justify-between">
                                 <div class="flex items-center gap-6">
-                                    <span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'} scale-110">${inc.severity}</span>
+                                    <span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span>
                                     <div>
                                         <h3 class="font-bold text-base text-text-light dark:text-text-dark">${inc.alert_name}</h3>
                                         <div class="text-[10px] text-muted uppercase font-bold mt-1 tracking-wider">
@@ -87,8 +89,8 @@ async function showReportModal(incidentId) {
     overlay.innerHTML = `
         <div class="pane w-full max-w-5xl h-full flex flex-col shadow-2xl scale-in-95 animate-in zoom-in duration-300 border-primary-light/20">
             <div class="pane-header flex justify-between items-center h-14">
-                <span class="text-sm font-bold tracking-widest uppercase">Incident Post-Mortem Report</span>
-                <button id="close-report-modal" class="p-2 rounded-full hover:bg-alert-red hover:text-white transition-all">
+                <span>Incident Post-Mortem Report</span>
+                <button id="close-report-modal" class="modal-close-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>

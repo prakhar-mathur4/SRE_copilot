@@ -26,7 +26,7 @@ export async function renderPodsView(container) {
                 </div>
                 <div class="flex-grow overflow-auto">
                     <table class="w-full text-left border-collapse">
-                        <thead class="sticky top-0 bg-surface-hover-light/10 dark:bg-surface-hover-dark/10 backdrop-blur-md border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted-light dark:text-muted-dark font-bold">
+                        <thead class="table-header">
                             <tr>
                                 <th class="p-5">Resource Name</th>
                                 <th class="p-5">Context</th>
@@ -77,7 +77,7 @@ export async function renderPodsView(container) {
             }
 
             // Clear and Rebuild Rows
-            body.innerHTML = pods.length === 0 ? `<tr><td colspan="11" class="p-20 text-center text-muted-light italic">Registry empty for current context.</td></tr>` : '';
+            body.innerHTML = pods.length === 0 ? `<tr><td colspan="11" class="empty-state">Registry Empty for Current Context</td></tr>` : '';
             
             pods.forEach(pod => {
                 const row = document.createElement('tr');
@@ -153,8 +153,8 @@ async function showYamlModal(name, ns) {
     overlay.innerHTML = `
         <div class="pane w-full max-w-5xl h-full flex flex-col shadow-2xl scale-in-95 animate-in zoom-in duration-300">
             <div class="pane-header flex justify-between items-center h-14">
-                <span class="text-xs font-black tracking-widest uppercase">Spec: ${name}</span>
-                <button id="close-modal" class="p-2 hover:text-alert-red transition-all">
+                <span>Spec: ${name}</span>
+                <button id="close-modal" class="modal-close-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>

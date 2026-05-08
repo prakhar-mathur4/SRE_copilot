@@ -41,7 +41,22 @@ h1, h2, h3, h4, .font-heading {
 }
 
 .pane-header {
-  @apply px-6 py-4 border-b border-surface-hover-light dark:border-surface-hover-dark font-mono text-[11px] font-bold uppercase tracking-widest text-muted;
+  @apply px-6 py-4 border-b border-surface-hover-light dark:border-surface-hover-dark font-mono text-[10px] font-bold uppercase tracking-widest text-muted;
+}
+
+/* Empty state — standardized no-data placeholder */
+.empty-state {
+  @apply p-16 text-center text-muted text-[11px] font-mono uppercase tracking-widest;
+}
+
+/* Modal close button */
+.modal-close-btn {
+  @apply p-2 rounded-lg hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark hover:text-alert-red text-muted transition-all;
+}
+
+/* Table header row */
+.table-header {
+  @apply sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold;
 }
 
 /* Bento Grid System */
