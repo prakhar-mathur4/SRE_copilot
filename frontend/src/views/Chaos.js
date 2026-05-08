@@ -10,19 +10,14 @@ export async function renderChaosView(container) {
     updateState({ chaosScenarios: scenarios });
 
     container.innerHTML = `
-        <div class="flex flex-col gap-10 h-full max-w-6xl mx-auto py-10 px-4">
-            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-surface-hover-light dark:border-surface-hover-dark pb-10">
-                <div class="max-w-2xl">
-                    <h2 class="text-4xl font-heading font-bold text-primary-light dark:text-primary-dark mb-4 tracking-tight">Simulation Control</h2>
-                    <p class="text-muted text-base leading-relaxed font-medium">Inject controlled failures into the cluster to verify pipeline resilience. Ensure emergency bypasses are clear before triggering destructive scenarios.</p>
-                </div>
-                ${state.isSimulationMode ? `
-                    <button id="abort-all-btn" class="px-8 h-12 bg-alert-orange hover:bg-red-600 text-white text-xs font-bold uppercase rounded-xl transition-all shadow-lg shadow-alert-orange/20 flex items-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                        Global Restoration
-                    </button>
-                ` : ''}
-            </div>
+        <div class="flex flex-col gap-6 h-full max-w-6xl mx-auto px-4">
+            ${state.isSimulationMode ? `
+            <div class="flex justify-end">
+                <button id="abort-all-btn" class="px-6 h-10 bg-alert-orange hover:bg-red-600 text-white text-xs font-bold uppercase rounded-xl transition-all shadow-lg shadow-alert-orange/20 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                    Global Restoration
+                </button>
+            </div>` : ''}
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 ${scenarios.map(s => `

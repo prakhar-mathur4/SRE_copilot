@@ -11,12 +11,7 @@ export async function renderRulesView(container) {
         const [filters, windows, stats] = await Promise.all([fetchFilters(), fetchMaintenance(), fetchNoiseStats()]);
 
         container.innerHTML = `
-            <div class="flex flex-col gap-8 h-full max-w-7xl mx-auto py-10 px-6 animate-fade-in">
-                <!-- Header -->
-                <div class="flex flex-col gap-2">
-                    <h2 class="text-3xl font-bold tracking-tight">Suppression Center</h2>
-                    <p class="text-muted text-sm max-w-2xl">Manage alert noise by defining filter rules and maintenance windows using Common Expression Language (CEL).</p>
-                </div>
+            <div class="flex flex-col gap-8 h-full max-w-7xl mx-auto px-6 animate-fade-in">
 
                 <!-- Stats Bar -->
                 <div class="grid grid-cols-3 gap-4">
@@ -87,7 +82,7 @@ export async function renderRulesView(container) {
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-surface-hover-light dark:divide-surface-hover-dark">
-                                        ${filters.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-muted italic text-xs">No filter rules defined.</td></tr>' : ''}
+                                        ${filters.length === 0 ? '<tr><td colspan="5" class="empty-state">No Filter Rules Defined</td></tr>' : ''}
                                         ${filters.map(f => `
                                             <tr class="hover:bg-surface-hover-light/50 dark:hover:bg-surface-hover-dark/50 transition-colors text-xs">
                                                 <td class="p-4 font-bold">${f.name}</td>
@@ -126,7 +121,7 @@ export async function renderRulesView(container) {
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-surface-hover-light dark:divide-surface-hover-dark">
-                                        ${windows.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-muted italic text-xs">No active maintenance windows.</td></tr>' : ''}
+                                        ${windows.length === 0 ? '<tr><td colspan="5" class="empty-state">No Active Maintenance Windows</td></tr>' : ''}
                                         ${windows.map(w => `
                                             <tr class="hover:bg-surface-hover-light/50 dark:hover:bg-surface-hover-dark/50 transition-colors text-xs">
                                                 <td class="p-4 font-bold">${w.id}</td>

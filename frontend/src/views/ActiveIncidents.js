@@ -95,7 +95,7 @@ function openQuickView(inc) {
                             : ''}
                     </div>
                 </div>
-                <button id="qv-close" class="shrink-0 p-1.5 rounded-lg hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark text-muted hover:text-text-light dark:hover:text-text-dark transition-colors">
+                <button id="qv-close" class="shrink-0 modal-close-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
             </div>
@@ -189,16 +189,16 @@ export function renderActiveIncidentsView(container) {
 
     container.innerHTML = `
         <div class="h-full min-h-0 pane flex flex-col">
-            <div class="pane-header flex justify-between items-center">
-                <span>Firing Alerts (${active.length})</span>
-                <select id="incident-context-filter" class="bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-md h-7 px-3 text-[10px] text-muted focus:ring-1 ring-primary-light">
-                    <option value="all">All Contexts</option>
-                    ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
-                </select>
+            <div class="pane-header flex items-center justify-between">
+                <span>Firing Alerts <span class="text-text-light dark:text-text-dark font-black">${active.length}</span></span>
+                <span class="flex items-center gap-1.5 ${active.length > 0 ? 'text-alert-red' : 'text-alert-green'} text-[9px] font-black">
+                    <span class="w-1.5 h-1.5 rounded-full ${active.length > 0 ? 'bg-alert-red animate-pulse' : 'bg-alert-green'}"></span>
+                    ${active.length > 0 ? 'LIVE' : 'HEALTHY'}
+                </span>
             </div>
             <div class="flex-grow overflow-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="sticky top-0 bg-surface-light dark:bg-surface-dark border-b border-surface-hover-light dark:border-surface-hover-dark text-[10px] uppercase text-muted font-bold">
+                    <thead class="table-header">
                         <tr>
                             <th class="p-4">ID</th>
                             <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-sev">Severity${sortIcon('severity')}</th>
@@ -206,11 +206,16 @@ export function renderActiveIncidentsView(container) {
                             <th class="p-4">Context</th>
                             <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-time">Time${sortIcon('time')}</th>
                             <th class="p-4 text-center" title="Duplicate firings dropped by storm protection">Suppressed</th>
-                            <th class="p-4 text-center">Action</th>
+                            <th class="p-4 text-right normal-case font-normal">
+                                <select id="incident-context-filter" class="bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-md h-7 px-3 text-[10px] text-muted focus:ring-1 ring-primary-light">
+                                    <option value="all">All Contexts</option>
+                                    ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
+                                </select>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="incidents-body">
-                        ${active.length === 0 ? `<tr><td colspan="7" class="p-16 text-center text-primary-light dark:text-primary-dark font-mono uppercase text-xs tracking-widest">No active incidents. Cluster healthy.</td></tr>` : ''}
+                        ${active.length === 0 ? `<tr><td colspan="7" class="empty-state text-primary-light dark:text-primary-dark">All Clear — No Active Incidents</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>

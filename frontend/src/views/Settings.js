@@ -12,11 +12,7 @@ export async function renderSettingsView(container) {
         const { env, connectors } = data;
 
         container.innerHTML = `
-            <div class="flex flex-col gap-10 h-full max-w-5xl mx-auto py-10 px-4">
-                <div class="border-b border-surface-hover-light dark:border-surface-hover-dark pb-10">
-                    <h2 class="text-4xl font-heading font-bold text-primary-light dark:text-primary-dark mb-4 tracking-tight">Infrastructure Registry</h2>
-                    <p class="text-muted text-base leading-relaxed font-medium">Manage multiple Kubernetes clusters and Prometheus VM monitors from a single plane. The Copilot will automatically route alerts to the correct provider.</p>
-                </div>
+            <div class="flex flex-col gap-6 h-full max-w-5xl mx-auto px-4">
 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <!-- Left: Connectors List -->
