@@ -64,7 +64,7 @@ export async function renderControlRoomView(container) {
                     <div id="ai-content" class="flex-grow overflow-auto prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-white/5">
                         ${inc.rca_report
                             ? ((!inc.telemetry_available)
-                                ? `<div class="mb-3 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 not-prose">No telemetry collected — analysis based on alert metadata only.</div>` + marked.parse(inc.rca_report)
+                                ? `<div class="mb-3 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 not-prose">Not enough information to collect telemetry — check AI recommendation below or perform a manual investigation.</div>` + marked.parse(inc.rca_report)
                                 : marked.parse(inc.rca_report))
                             : '<div class="text-muted italic p-10 text-center">Synthesizing cluster telemetry...</div>'
                         }
@@ -72,7 +72,7 @@ export async function renderControlRoomView(container) {
 
                     <!-- Raw Content (Hidden by default) -->
                     <div id="raw-content" class="hidden flex-grow overflow-auto terminal">
-                        <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (!inc.telemetry_available ? `TELEMETRY UNAVAILABLE: ${inc.telemetry_error || 'No matching infrastructure connector for this alert.'}` : 'No raw telemetry collected for this incident.')}</pre>
+                        <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (!inc.telemetry_available ? 'Not enough information to collect telemetry.\nCheck the AI recommendation or perform a manual investigation.' : 'No raw telemetry collected for this incident.')}</pre>
                     </div>
 
                     <!-- Alert Payload (Hidden by default) -->
