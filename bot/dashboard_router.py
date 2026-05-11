@@ -212,6 +212,8 @@ async def get_incident(incident_id: str):
         "labels": incident.labels,
         "annotations": incident.annotations,
         "diagnostics_collected": incident.diagnostics_collected,
+        "diagnostics_failed": incident.diagnostics_failed,
+        "diagnostics_error": incident.diagnostics_error,
         "rca_completed": incident.rca_completed,
         "rca_report": incident.rca_report,
         "raw_diagnostics": incident.raw_diagnostics,

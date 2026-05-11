@@ -33,6 +33,12 @@ async def get_cluster_health_metrics() -> List[Dict[str, Any]]:
 async def collect_diagnostics(namespace: str, alert_labels: Dict[str, str]) -> str:
     # Use the registry heuristic to find the best provider instance
     provider = registry.find_best_provider(alert_labels)
+    if provider is None:
+        raise RuntimeError(
+            f"NO_MATCHING_PROVIDER: No infrastructure connector matched the alert labels "
+            f"{list(alert_labels.keys())}. Add a connector in Settings or label the alert with "
+            f"'instance', 'namespace', or 'provider_id'."
+        )
     logger.info(f"Routing diagnostics for alert to provider: {provider}")
     return await provider.collect_diagnostics(namespace, alert_labels)
 

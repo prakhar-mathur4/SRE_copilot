@@ -35,7 +35,7 @@ export async function renderControlRoomView(container) {
                             <h2 class="text-xl font-bold leading-tight">${inc.alert_name}</h2>
                         </div>
                         <div class="text-xs text-muted">
-                            Started: ${new Date(inc.start_time).toLocaleString()}
+                            Started: ${new Date(inc.alert_starts_at && !inc.alert_starts_at.startsWith('0001') ? inc.alert_starts_at : inc.start_time).toLocaleString()}
                         </div>
                         
                         <div class="mt-4 pt-4 border-t border-white/5">
@@ -121,8 +121,8 @@ export async function renderControlRoomView(container) {
                     </div>
                     <div class="flex-grow terminal text-primary-dark/80 p-0 shadow-none border-none overflow-x-hidden">
                         <div class="space-y-1">
-                            <div class="text-text-dark/20">[00:00:01] PROBE: minikube-cluster-01</div>
-                            <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.context}</div>
+                            <div class="text-text-dark/20">[00:00:01] PROBE: ${inc.labels?.instance || inc.labels?.cluster || inc.namespace || 'unknown'}</div>
+                            <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.namespace}</div>
                             ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div class="break-words"><span class="text-text-dark/20">[${new Date(e.timestamp).toLocaleTimeString()}]</span> ${e.description}</div>`).join('')}
                             ${!inc.diagnostics_failed && !inc.rca_completed ? '<div class="animate-pulse text-primary-dark">_</div>' : ''}
                         </div>
@@ -155,7 +155,7 @@ export async function renderControlRoomView(container) {
                                 ${inc.runbook_executed ? '<span class="text-[9px] font-bold px-2 py-0.5 bg-alert-green text-white rounded">EXECUTED</span>' : ''}
                             </div>
                             <h3 class="text-lg font-bold mb-1">${inc.diagnostics_failed ? 'Infrastructure Unreachable' : (inc.recommended_runbook || 'Standard Pod Restart')}</h3>
-                            <p class="text-xs text-muted italic">${inc.diagnostics_failed ? 'Remediation engine suspended due to connectivity loss.' : `Verified safe for ${inc.context} context via historical runbooks.`}</p>
+                            <p class="text-xs text-muted italic">${inc.diagnostics_failed ? 'Remediation engine suspended due to connectivity loss.' : `Verified safe for ${inc.namespace} context via historical runbooks.`}</p>
                         </div>
                         
                         ${!inc.runbook_executed && !inc.diagnostics_failed ? `
