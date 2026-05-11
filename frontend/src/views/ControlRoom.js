@@ -62,19 +62,17 @@ export async function renderControlRoomView(container) {
 
                     <!-- AI Content -->
                     <div id="ai-content" class="flex-grow overflow-auto prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-white/5">
-                        ${inc.diagnostics_failed
-                            ? `<div class="p-10 text-center border-2 border-dashed border-alert-red/20 rounded-2xl bg-alert-red/5">
-                                <h3 class="text-alert-red font-bold text-lg mb-2 uppercase tracking-tighter">Pipeline Failure</h3>
-                                <p class="text-xs text-muted leading-relaxed">The diagnostic engine could not reach the target infrastructure.<br><br>
-                                <span class="bg-alert-red/10 px-2 py-1 rounded text-alert-red font-mono font-bold">${inc.diagnostics_error || 'CONNECTION_TIMEOUT'}</span></p>
-                               </div>`
-                            : (inc.rca_report ? marked.parse(inc.rca_report) : '<div class="text-muted italic p-10 text-center">Synthesizing cluster telemetry...</div>')
+                        ${inc.rca_report
+                            ? ((!inc.telemetry_available)
+                                ? `<div class="mb-3 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 not-prose">No telemetry collected — analysis based on alert metadata only.</div>` + marked.parse(inc.rca_report)
+                                : marked.parse(inc.rca_report))
+                            : '<div class="text-muted italic p-10 text-center">Synthesizing cluster telemetry...</div>'
                         }
                     </div>
 
                     <!-- Raw Content (Hidden by default) -->
                     <div id="raw-content" class="hidden flex-grow overflow-auto terminal">
-                        <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (inc.diagnostics_failed ? 'ERROR: INFRASTRUCTURE UNREACHABLE' : 'No raw diagnostics available for this incident.')}</pre>
+                        <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (!inc.telemetry_available ? `TELEMETRY UNAVAILABLE: ${inc.telemetry_error || 'No matching infrastructure connector for this alert.'}` : 'No raw telemetry collected for this incident.')}</pre>
                     </div>
 
                     <!-- Alert Payload (Hidden by default) -->
@@ -117,14 +115,14 @@ export async function renderControlRoomView(container) {
                 <div class="md:col-span-3 row-span-4 bento-card overflow-hidden !bg-background-dark !border-surface-hover-dark">
                     <div class="text-[10px] font-bold text-text-dark/40 uppercase tracking-widest mb-4 flex items-center justify-between">
                         <span>Diagnostic Stream</span>
-                        <span class="flex h-2 w-2 rounded-full ${inc.diagnostics_failed ? 'bg-alert-red shadow-[0_0_8px_#EF4444]' : 'bg-alert-green animate-ping'}"></span>
+                        <span class="flex h-2 w-2 rounded-full ${!inc.telemetry_available ? 'bg-yellow-500' : (inc.rca_completed ? 'bg-alert-green' : 'bg-alert-green animate-ping')}"></span>
                     </div>
                     <div class="flex-grow terminal text-primary-dark/80 p-0 shadow-none border-none overflow-x-hidden">
                         <div class="space-y-1">
                             <div class="text-text-dark/20">[00:00:01] PROBE: ${inc.labels?.instance || inc.labels?.cluster || inc.namespace || 'unknown'}</div>
                             <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.namespace}</div>
                             ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div class="break-words"><span class="text-text-dark/20">[${new Date(e.timestamp).toLocaleTimeString()}]</span> ${e.description}</div>`).join('')}
-                            ${!inc.diagnostics_failed && !inc.rca_completed ? '<div class="animate-pulse text-primary-dark">_</div>' : ''}
+                            ${!inc.rca_completed ? '<div class="animate-pulse text-primary-dark">_</div>' : ''}
                         </div>
                     </div>
                 </div>
@@ -147,49 +145,25 @@ export async function renderControlRoomView(container) {
                 </div>
 
                 <!-- 5. Remediation (Bento Unit) -->
-                <div class="md:col-span-9 row-span-2 bento-card border-t-4 ${inc.diagnostics_failed ? 'border-t-muted grayscale' : 'border-t-alert-orange'} shadow-lg shadow-alert-orange/5 bg-alert-orange/5">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div>
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-[10px] font-bold ${inc.diagnostics_failed ? 'text-muted' : 'text-alert-orange'} uppercase tracking-widest">Recommended Remediation</span>
-                                ${inc.runbook_executed ? '<span class="text-[9px] font-bold px-2 py-0.5 bg-alert-green text-white rounded">EXECUTED</span>' : ''}
-                            </div>
-                            <h3 class="text-lg font-bold mb-1">${inc.diagnostics_failed ? 'Infrastructure Unreachable' : (inc.recommended_runbook || 'Standard Pod Restart')}</h3>
-                            <p class="text-xs text-muted italic">${inc.diagnostics_failed ? 'Remediation engine suspended due to connectivity loss.' : `Verified safe for ${inc.namespace} context via historical runbooks.`}</p>
+                <div class="md:col-span-9 row-span-2 bento-card border-t-4 ${inc.rca_completed ? 'border-t-accent-primary' : 'border-t-muted'} bg-accent-primary/5">
+                    <div class="flex flex-col gap-3 h-full">
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-[10px] font-bold text-accent-primary uppercase tracking-widest">AI Suggested Remediation</span>
+                            ${inc.rca_completed ? '<span class="text-[9px] font-bold px-2 py-0.5 bg-accent-primary/20 text-accent-primary rounded">ANALYSIS COMPLETE</span>' : ''}
+                            ${!inc.telemetry_available ? '<span class="text-[9px] font-bold px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">NO TELEMETRY</span>' : ''}
                         </div>
-                        
-                        ${!inc.runbook_executed && !inc.diagnostics_failed ? `
-                            <div class="flex-grow flex flex-col gap-3">
-                                <div class="p-3 bg-black/40 rounded-lg border border-white/5 font-mono text-[10px]">
-                                    <div class="text-muted mb-1 font-sans uppercase font-bold tracking-widest text-[8px]">Proposed Command</div>
-                                    <div class="text-primary-light flex items-center gap-2">
-                                        <span class="text-white/20">$</span>
-                                        <span>${
-                                            inc.alert_name === 'LocalDiskFull' ? 'rm -rf /tmp/test-logs && df -h /' :
-                                            inc.alert_name === 'PodCrashLooping' ? `kubectl delete pod ${inc.namespace ? '-n ' + inc.namespace : ''} web-api-pod-xyz` :
-                                            inc.alert_name === 'HighCPUUsage' ? 'ps aux --sort=-%cpu | head -n 5' :
-                                            'sre-copilot-remediate --incident-id ' + inc.incident_id.slice(0,8)
-                                        }</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex gap-4 items-center shrink-0">
-                                <div class="text-right hidden lg:block">
-                                    <div class="text-[9px] text-muted-light uppercase font-bold mb-1">Human-in-the-loop</div>
-                                    <div class="text-[10px] italic">Requires manual confirmation</div>
-                                </div>
-                                <button class="btn-primary bg-alert-orange from-alert-orange to-red-500 shadow-alert-orange/20" id="approve-runbook-btn">Approve Execution</button>
-                            </div>
-                        ` : (inc.runbook_executed ? `
-                            <div class="p-3 rounded-lg bg-black/40 font-mono text-[10px] text-primary-light/60 flex-grow max-w-md">
-                                <span class="text-white/40">$ runbook_exec --id ${inc.incident_id}</span><br>
-                                <span class="text-accent-success">> ${inc.runbook_action}</span>
-                            </div>
-                        ` : `
-                            <div class="p-3 border-2 border-dashed border-white/5 rounded-xl text-[10px] text-muted uppercase font-bold tracking-widest px-10">
-                                Manual Control Required
-                            </div>
-                        `)}
+                        ${inc.suggested_remediation
+                            ? `<div class="flex-grow p-4 rounded-xl bg-black/30 border border-accent-primary/20 overflow-auto">
+                                <p class="text-sm leading-relaxed">${inc.suggested_remediation}</p>
+                               </div>
+                               <p class="text-[10px] text-muted italic flex-shrink-0">Suggestion only — all actions must be performed manually by an on-call engineer.</p>`
+                            : (inc.rca_completed
+                                ? `<p class="text-sm text-muted italic">No remediation suggestion generated. Review the AI RCA tab for details.</p>`
+                                : `<div class="flex items-center gap-3 text-muted flex-grow">
+                                    <div class="animate-spin h-4 w-4 border-2 border-accent-primary/20 border-t-accent-primary rounded-full flex-shrink-0"></div>
+                                    <span class="text-sm italic">Waiting for AI analysis...</span>
+                                   </div>`)
+                        }
                     </div>
                 </div>
             </div>
@@ -230,28 +204,8 @@ export async function renderControlRoomView(container) {
         rawBtn.onclick     = () => activateTab(rawBtn, rawContent);
         payloadBtn.onclick = () => activateTab(payloadBtn, payloadContent);
 
-        const btn = container.querySelector('#approve-runbook-btn');
-        if (btn) {
-            btn.onclick = async () => {
-                const confirmVal = prompt('Type "EXECUTE" to run the remediation:');
-                if (confirmVal === 'EXECUTE') {
-                    btn.disabled = true;
-                    btn.innerText = 'EXECUTING...';
-                    try {
-                        const r = await fetch(`${API_BASE}/runbook/trigger`, {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ incident_id: inc.incident_id, alert_name: inc.alert_name })
-                        });
-                        const data = await r.json();
-                        if (data.success) renderControlRoomView(container);
-                        else alert("Failed: " + data.detail);
-                    } catch (e) { console.error(e); }
-                }
-            };
-        }
 
-    } catch (e) {
+} catch (e) {
         container.innerHTML = `<div class="p-20 text-center text-alert-red font-bold">LINK FAILURE: ${e.message}</div>`;
     }
 }

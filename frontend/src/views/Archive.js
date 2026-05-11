@@ -47,7 +47,7 @@ export function renderArchiveView(container) {
                                     <div>
                                         <h3 class="font-bold text-base text-text-light dark:text-text-dark">${inc.alert_name}</h3>
                                         <div class="text-[10px] text-muted uppercase font-bold mt-1 tracking-wider">
-                                            ${inc.incident_id.slice(0,12)} • ${inc.context || 'N/A'} • RESOLVED ${new Date(inc.last_updated).toLocaleDateString()}
+                                            ${inc.incident_id.slice(0,12)} • ${inc.namespace || 'N/A'} • RESOLVED ${new Date(inc.last_updated).toLocaleDateString()}
                                         </div>
                                     </div>
                                 </div>
