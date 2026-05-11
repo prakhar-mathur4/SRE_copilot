@@ -31,16 +31,37 @@ async def get_cluster_health_metrics() -> List[Dict[str, Any]]:
     return health_reports
 
 async def collect_diagnostics(namespace: str, alert_labels: Dict[str, str]) -> str:
-    # Use the registry heuristic to find the best provider instance
+    """Collect diagnostic telemetry for an alert.
+
+    Returns a markdown string (may be empty if no data is available).
+    Never raises — callers should treat an empty return as "telemetry unavailable".
+    """
+    if not registry._providers:
+        registry.load_connectors()
+
     provider = registry.find_best_provider(alert_labels)
-    if provider is None:
-        raise RuntimeError(
-            f"NO_MATCHING_PROVIDER: No infrastructure connector matched the alert labels "
-            f"{list(alert_labels.keys())}. Add a connector in Settings or label the alert with "
-            f"'instance', 'namespace', or 'provider_id'."
-        )
-    logger.info(f"Routing diagnostics for alert to provider: {provider}")
-    return await provider.collect_diagnostics(namespace, alert_labels)
+
+    if provider is not None:
+        logger.info(f"Routing diagnostics to matched provider: {provider.provider_name}")
+        try:
+            return await provider.collect_diagnostics(namespace, alert_labels)
+        except Exception as e:
+            logger.warning(f"Diagnostics failed on matched provider ({provider.provider_name}): {e}")
+            return ""
+
+    # No heuristic match — fan out to all Prometheus providers
+    from bot.providers.prometheus_provider import PrometheusProvider
+    parts: List[str] = []
+    for p_id, p in registry._providers.items():
+        if isinstance(p, PrometheusProvider) and p.prometheus_url:
+            try:
+                data = await p.collect_diagnostics(namespace, alert_labels)
+                if data:
+                    parts.append(data)
+            except Exception as e:
+                logger.warning(f"Prometheus provider {p_id} diagnostic failed: {e}")
+
+    return "\n\n".join(parts)
 
 async def list_all_pods(namespace: str = None) -> list:
     if not registry._providers:
