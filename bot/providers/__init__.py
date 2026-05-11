@@ -111,8 +111,10 @@ class ProviderRegistry:
             for p_id, p in self._providers.items():
                 if isinstance(p, PrometheusProvider): return p
 
-        # Default to first available or Kubernetes
-        return next(iter(self._providers.values())) if self._providers else KubernetesProvider()
+        # No heuristic matched — return None so the caller can set diagnostics_failed
+        # instead of silently collecting irrelevant data from the local machine
+        logger.warning(f"No matching provider found for labels: {alert_labels}. Skipping diagnostics.")
+        return None
 
 # Global Registry Instance
 registry = ProviderRegistry()
