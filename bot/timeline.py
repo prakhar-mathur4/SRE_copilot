@@ -26,13 +26,16 @@ class IncidentState(BaseModel):
     annotations: Dict[str, str] = {}
     events: List[TimelineEvent] = []
     diagnostics_collected: bool = False
-    diagnostics_failed: bool = False
+    diagnostics_failed: bool = False        # deprecated — use telemetry_available
     diagnostics_error: Optional[str] = None
+    telemetry_available: bool = True        # True = Prometheus returned data; False = no data / no matching provider
+    telemetry_error: Optional[str] = None  # human-readable reason when telemetry_available is False
     rca_completed: bool = False
     rca_report: Optional[str] = None
     raw_diagnostics: Optional[str] = None
     runbook_executed: bool = False
     runbook_action: Optional[str] = None
+    suggested_remediation: Optional[str] = None  # LLM-generated suggestion, replaces runbook_action for new incidents
     last_updated: datetime
 
 class TimelineManager:
