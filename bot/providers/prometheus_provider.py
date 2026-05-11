@@ -71,14 +71,6 @@ def _inject_filter(query: str, key: str, val: str) -> str:
     return out
 
 
-def _strip_filter(query: str, key: str) -> str:
-    """Remove a specific label filter — converts an instance query to cluster-wide fallback."""
-    out = re.sub(rf'{re.escape(key)}="[^"]*",?', '', query)
-    out = re.sub(r',\s*\}', '}', out)
-    out = re.sub(r'\{\s*\}', '', out)
-    out = re.sub(r'\{,', '{', out)
-    return out
-
 
 class PrometheusProvider(DiagnosticProvider):
     def __init__(self, prometheus_url: str = None):
@@ -130,19 +122,20 @@ class PrometheusProvider(DiagnosticProvider):
         return {"status": "offline", "name": self.provider_name, "error": "Connection timed out"}
 
     async def collect_diagnostics(self, context: str, alert_labels: Dict[str, str]) -> str:
-        """Keyword-based diagnostic telemetry: queries Prometheus for the alert's relevant metrics."""
+        """Query Prometheus for instance-specific metrics relevant to this alert.
+
+        Returns a markdown string only when the exact instance is found in Prometheus.
+        Returns "" in all other cases — callers treat that as telemetry unavailable.
+        """
         if not self.prometheus_url:
             return ""
 
-        # Best available filter label: instance > host > job > agent
-        filter_key, filter_val = None, None
-        for lk in ("instance", "host", "job", "agent"):
-            lv = alert_labels.get(lk)
-            if lv:
-                filter_key, filter_val = lk, lv
-                break
+        # Only a concrete instance label is meaningful — everything else is ambiguous
+        instance = alert_labels.get("instance")
+        if not instance:
+            return ""
 
-        # Detect relevant query categories from alert name
+        # Detect relevant query categories from the alert name
         alert_name = (alert_labels.get("alertname") or context or "").lower()
         categories: set = set()
         for kw, cat in _KEYWORD_MAP.items():
@@ -163,38 +156,33 @@ class PrometheusProvider(DiagnosticProvider):
         lines: List[str] = []
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                # Target / uptime check
-                up_q = f'up{{{filter_key}="{filter_val}"}}' if filter_key else "up"
-                up_results = await self._instant_query(client, up_q)
+                # Verify the instance is actually being scraped by Prometheus
+                up_results = await self._instant_query(client, f'up{{instance="{instance}"}}')
+                if not up_results:
+                    return ""
 
-                if up_results:
-                    is_up = up_results[0]["value"][1] == "1"
-                    inst = up_results[0].get("metric", {}).get("instance", filter_val or "unknown")
-                    lines.append("### Telemetry from Prometheus")
-                    lines.append(f"**Target**: {inst} — **Status**: {'ONLINE' if is_up else 'OFFLINE'}")
-                elif filter_key:
-                    lines.append("### Telemetry from Prometheus")
-                    lines.append(f"*(No matching target for {filter_key}={filter_val!r} — showing cluster-wide metrics)*")
-                else:
-                    lines.append("### Telemetry from Prometheus (cluster-wide)")
-
+                is_up = up_results[0]["value"][1] == "1"
+                lines.append("### Telemetry from Prometheus")
+                lines.append(f"**Target**: {instance} — **Status**: {'ONLINE' if is_up else 'OFFLINE'}")
                 lines.append("")
                 lines.append("| Metric | Value |")
                 lines.append("|--------|-------|")
 
+                queries_used: List[Tuple[str, str]] = []
                 for display_name, base_query in queries_to_run:
-                    if filter_key:
-                        results, is_specific = await self._run_query(client, filter_key, filter_val, base_query)
-                    else:
-                        results = await self._instant_query(client, base_query)
-                        is_specific = False
-
+                    results, actual_query = await self._run_query(client, instance, base_query)
                     if results:
                         val = self._format_value(display_name, results[0]["value"][1])
-                        scope = "" if is_specific else " *(cluster avg)*"
-                        lines.append(f"| {display_name} | {val}{scope} |")
+                        lines.append(f"| {display_name} | {val} |")
                     else:
                         lines.append(f"| {display_name} | N/A |")
+                    queries_used.append((display_name, actual_query))
+
+                lines.append("")
+                lines.append("### Queries Used")
+                for display_name, query in queries_used:
+                    lines.append(f"- **{display_name}**")
+                    lines.append(f"  `{query}`")
 
         except httpx.ConnectError:
             logger.error(f"Prometheus unreachable at {self.prometheus_url}")
@@ -216,15 +204,10 @@ class PrometheusProvider(DiagnosticProvider):
             pass
         return []
 
-    async def _run_query(self, client: httpx.AsyncClient, key: str, val: str, base_query: str) -> Tuple[List[Dict], bool]:
-        """Run query with instance filter; fall back to cluster-wide if no results."""
-        filtered = _inject_filter(base_query, key, val)
-        results = await self._instant_query(client, filtered)
-        if results:
-            return results, True
-        wide = _strip_filter(filtered, key)
-        results = await self._instant_query(client, wide)
-        return results, False
+    async def _run_query(self, client: httpx.AsyncClient, instance: str, base_query: str) -> Tuple[List[Dict], str]:
+        """Run a PromQL query scoped to a specific instance. Returns (results, actual_query)."""
+        query = _inject_filter(base_query, "instance", instance)
+        return await self._instant_query(client, query), query
 
     @staticmethod
     def _format_value(display_name: str, raw: Any) -> str:
