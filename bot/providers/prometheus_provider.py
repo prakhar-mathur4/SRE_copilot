@@ -1,10 +1,76 @@
 import logging
 import httpx
 import os
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional, Tuple
 from bot.providers.base import DiagnosticProvider
 
 logger = logging.getLogger("sre_copilot")
+
+# ---------------------------------------------------------------------------
+# PromQL query catalog — keyed by alert-name keyword category
+# ---------------------------------------------------------------------------
+_QUERY_CATALOG: Dict[str, List[Tuple[str, str]]] = {
+    "cpu": [
+        ("CPU Usage %",        '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'),
+        ("CPU iowait %",       'avg by (instance) (irate(node_cpu_seconds_total{mode="iowait"}[5m])) * 100'),
+    ],
+    "memory": [
+        ("Memory Usage %",     "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100"),
+        ("Swap Usage %",       "(1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100"),
+    ],
+    "disk": [
+        ("Disk Usage %",       'avg((1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100)'),
+        ("Disk Read Bytes/s",  "rate(node_disk_read_bytes_total[5m])"),
+        ("Disk Write Bytes/s", "rate(node_disk_written_bytes_total[5m])"),
+    ],
+    "network": [
+        ("Net Rx Bytes/s",     "rate(node_network_receive_bytes_total[5m])"),
+        ("Net Tx Bytes/s",     "rate(node_network_transmit_bytes_total[5m])"),
+        ("Net Errors/s",       "rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m])"),
+    ],
+    "latency": [
+        ("CPU Usage %",        '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'),
+        ("Net Rx Bytes/s",     "rate(node_network_receive_bytes_total[5m])"),
+    ],
+    "errors": [
+        ("Net Errors/s",       "rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m])"),
+        ("Disk Read Bytes/s",  "rate(node_disk_read_bytes_total[5m])"),
+    ],
+    "down": [
+        ("CPU Usage %",        '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'),
+        ("Memory Usage %",     "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100"),
+        ("Disk Usage %",       'avg((1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100)'),
+    ],
+}
+
+_DEFAULT_QUERIES: List[Tuple[str, str]] = _QUERY_CATALOG["down"]
+
+_KEYWORD_MAP: Dict[str, str] = {
+    "disk": "disk", "storage": "disk", "filesystem": "disk", "volume": "disk", "inode": "disk",
+    "cpu": "cpu", "load": "cpu", "throttl": "cpu",
+    "mem": "memory", "memory": "memory", "oom": "memory", "swap": "memory",
+    "network": "network", "net": "network", "bandwidth": "network", "packet": "network",
+    "latency": "latency", "lag": "latency", "slow": "latency", "timeout": "latency",
+    "error": "errors", "fail": "errors", "crash": "errors",
+    "down": "down", "unreachable": "down", "offline": "down",
+}
+
+
+def _inject_filter(query: str, key: str, val: str) -> str:
+    """Inject a label=value filter into every metric selector in a PromQL expression."""
+    kv = f'{key}="{val}"'
+    # Add to existing selectors: {existing} → {kv,existing}
+    out = re.sub(r'\{([^}]*)\}', lambda m: f'{{{kv},{m.group(1)}}}' if m.group(1) else f'{{{kv}}}', query)
+    # Add selector to bare node_* metrics not already followed by {
+    out = re.sub(
+        r'\b(node_[a-zA-Z0-9_]+)(?!\{)([(\[,\s\)\+\-\*/]|$)',
+        lambda m: f'{m.group(1)}{{{kv}}}{m.group(2)}',
+        out,
+    )
+    return out
+
+
 
 class PrometheusProvider(DiagnosticProvider):
     def __init__(self, prometheus_url: str = None):
@@ -25,7 +91,6 @@ class PrometheusProvider(DiagnosticProvider):
                 if res.status_code != 200:
                     return {"status": "offline", "name": self.provider_name, "error": f"HTTP {res.status_code}"}
 
-                # Query real CPU usage (average across all node_exporter instances)
                 cpu_usage = 0
                 mem_usage = 0
 
@@ -57,59 +122,109 @@ class PrometheusProvider(DiagnosticProvider):
         return {"status": "offline", "name": self.provider_name, "error": "Connection timed out"}
 
     async def collect_diagnostics(self, context: str, alert_labels: Dict[str, str]) -> str:
-        """Query real metrics for a specific VM instance."""
-        if not self.prometheus_url:
-            raise Exception("PROMETHEUS_GATEWAY_CONFIG_MISSING: No Prometheus URL provided in environment.")
+        """Query Prometheus for instance-specific metrics relevant to this alert.
 
+        Returns a markdown string only when the exact instance is found in Prometheus.
+        Returns "" in all other cases — callers treat that as telemetry unavailable.
+        """
+        if not self.prometheus_url:
+            return ""
+
+        # Only a concrete instance label is meaningful — everything else is ambiguous
         instance = alert_labels.get("instance")
         if not instance:
-            raise Exception("INVALID_METADATA: Alert missing 'instance' label for VM diagnostics.")
+            return ""
 
+        # Detect relevant query categories from the alert name
+        alert_name = (alert_labels.get("alertname") or context or "").lower()
+        categories: set = set()
+        for kw, cat in _KEYWORD_MAP.items():
+            if kw in alert_name:
+                categories.add(cat)
+
+        queries_to_run: List[Tuple[str, str]] = []
+        if categories:
+            seen: set = set()
+            for cat in sorted(categories):
+                for entry in _QUERY_CATALOG.get(cat, []):
+                    if entry[0] not in seen:
+                        queries_to_run.append(entry)
+                        seen.add(entry[0])
+        else:
+            queries_to_run = list(_DEFAULT_QUERIES)
+
+        lines: List[str] = []
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                # 1. Check if instance is up
-                query_up = f'up{{instance="{instance}"}}'
-                res_up = await client.get(f"{self.prometheus_url}/api/v1/query", params={"query": query_up})
-                is_up = False
-                if res_up.status_code == 200:
-                    results = res_up.json().get("data", {}).get("result", [])
-                    if results:
-                        is_up = results[0]["value"][1] == "1"
-                
-                status_str = "ONLINE" if is_up else "OFFLINE"
-                
-                # 2. Query CPU Usage (last 5m average)
-                query_cpu = f'100 - (avg by (instance) (irate(node_cpu_seconds_total{{instance="{instance}",mode="idle"}}[5m])) * 100)'
-                res_cpu = await client.get(f"{self.prometheus_url}/api/v1/query", params={"query": query_cpu})
-                cpu_val = "N/A"
-                if res_cpu.status_code == 200:
-                    results = res_cpu.json().get("data", {}).get("result", [])
-                    if results:
-                        cpu_val = f"{float(results[0]['value'][1]):.1f}%"
-                
-                # 3. Query Memory Usage
-                query_mem = f'(1 - (node_memory_MemAvailable_bytes{{instance="{instance}"}} / node_memory_MemTotal_bytes{{instance="{instance}"}})) * 100'
-                res_mem = await client.get(f"{self.prometheus_url}/api/v1/query", params={"query": query_mem})
-                mem_val = "N/A"
-                if res_mem.status_code == 200:
-                    results = res_mem.json().get("data", {}).get("result", [])
-                    if results:
-                        mem_val = f"{float(results[0]['value'][1]):.1f}%"
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # Verify the instance is actually being scraped by Prometheus
+                up_results = await self._instant_query(client, f'up{{instance="{instance}"}}')
+                if not up_results:
+                    return ""
 
-                return f"""
-### 🖥️ VM Connectivity Verified
-**Instance**: {instance}
-**Status**: {status_str} (via Prometheus)
+                is_up = up_results[0]["value"][1] == "1"
+                lines.append("### Telemetry from Prometheus")
+                lines.append(f"**Target**: {instance} — **Status**: {'ONLINE' if is_up else 'OFFLINE'}")
+                lines.append("")
+                lines.append("| Metric | Value |")
+                lines.append("|--------|-------|")
 
-### 📊 Metric Snapshot
-- **CPU Usage**: {cpu_val}
-- **Memory Usage**: {mem_val}
-- **Telemetry Source**: {self.prometheus_url}
-"""
+                queries_used: List[Tuple[str, str]] = []
+                for display_name, base_query in queries_to_run:
+                    results, actual_query = await self._run_query(client, instance, base_query)
+                    if results:
+                        val = self._format_value(display_name, results[0]["value"][1])
+                        lines.append(f"| {display_name} | {val} |")
+                    else:
+                        lines.append(f"| {display_name} | N/A |")
+                    queries_used.append((display_name, actual_query))
+
+                lines.append("")
+                lines.append("### Queries Used")
+                for display_name, query in queries_used:
+                    lines.append(f"- **{display_name}**")
+                    lines.append(f"  `{query}`")
+
         except httpx.ConnectError:
-            raise Exception(f"CONNECTION_REFUSED: Could not reach Prometheus at {self.prometheus_url}")
+            logger.error(f"Prometheus unreachable at {self.prometheus_url}")
+            return ""
         except Exception as e:
-            raise Exception(f"DIAGNOSTIC_FAILURE: {str(e)}")
+            logger.error(f"Prometheus diagnostic query failed: {e}")
+            return ""
+
+        lines.append(f"\n*Source: {self.prometheus_url}*")
+        return "\n".join(lines)
+
+    async def _instant_query(self, client: httpx.AsyncClient, query: str) -> List[Dict]:
+        """Execute a single PromQL instant query; returns result list or []."""
+        try:
+            r = await client.get(f"{self.prometheus_url}/api/v1/query", params={"query": query})
+            if r.status_code == 200:
+                return r.json().get("data", {}).get("result", [])
+        except Exception:
+            pass
+        return []
+
+    async def _run_query(self, client: httpx.AsyncClient, instance: str, base_query: str) -> Tuple[List[Dict], str]:
+        """Run a PromQL query scoped to a specific instance. Returns (results, actual_query)."""
+        query = _inject_filter(base_query, "instance", instance)
+        return await self._instant_query(client, query), query
+
+    @staticmethod
+    def _format_value(display_name: str, raw: Any) -> str:
+        """Format a raw Prometheus scalar for display."""
+        try:
+            num = float(raw)
+            if "Bytes" in display_name:
+                if num >= 1_048_576:
+                    return f"{num / 1_048_576:.1f} MB/s"
+                if num >= 1024:
+                    return f"{num / 1024:.1f} KB/s"
+                return f"{num:.0f} B/s"
+            if "Errors/s" in display_name:
+                return f"{num:.2f}/s"
+            return f"{num:.1f}%"
+        except (ValueError, TypeError):
+            return str(raw)
 
     async def list_resources(self, context: str = None) -> List[Dict[str, Any]]:
         return []
@@ -118,18 +233,17 @@ class PrometheusProvider(DiagnosticProvider):
         """Fetch 2 hours of historical CPU and Memory data."""
         if not self.prometheus_url:
             return {"error": "Prometheus URL not configured"}
-            
+
         import time
         end_time = int(time.time())
-        start_time = end_time - (2 * 3600) # 2 hours ago
-        step = "60s" # 1 minute resolution
-        
+        start_time = end_time - (2 * 3600)
+        step = "60s"
+
         cpu_history = []
         mem_history = []
-        
+
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                # Query average node CPU across all nodes for general cluster health
                 query_cpu = '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
                 res_cpu = await client.get(f"{self.prometheus_url}/api/v1/query_range", params={
                     "query": query_cpu,
@@ -137,14 +251,11 @@ class PrometheusProvider(DiagnosticProvider):
                     "end": end_time,
                     "step": step
                 })
-                
                 if res_cpu.status_code == 200:
                     data = res_cpu.json().get("data", {}).get("result", [])
                     if data and data[0].get("values"):
-                        # Convert to format: [(timestamp, value)]
                         cpu_history = [(int(v[0]), float(v[1])) for v in data[0]["values"]]
 
-                # Query average Memory usage across all nodes
                 query_mem = '(1 - (avg by (instance) (node_memory_MemAvailable_bytes) / avg by (instance) (node_memory_MemTotal_bytes))) * 100'
                 res_mem = await client.get(f"{self.prometheus_url}/api/v1/query_range", params={
                     "query": query_mem,
@@ -152,16 +263,15 @@ class PrometheusProvider(DiagnosticProvider):
                     "end": end_time,
                     "step": step
                 })
-                
                 if res_mem.status_code == 200:
                     data = res_mem.json().get("data", {}).get("result", [])
                     if data and data[0].get("values"):
                         mem_history = [(int(v[0]), float(v[1])) for v in data[0]["values"]]
-                        
+
         except Exception as e:
             logger.error(f"Prometheus time series query failed: {e}")
             return {"error": f"Failed to fetch telemetry: {str(e)}"}
-            
+
         return {
             "cpu": cpu_history,
             "memory": mem_history
