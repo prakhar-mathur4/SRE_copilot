@@ -22,3 +22,10 @@ dist/
 # Copy connectors.example.json to connectors.json and fill in your values.
 connectors.json
 
+# Runtime logs and PID files
+*.log
+.backend.pid
+.frontend.pid
+
+# Added by code-review-graph
+.code-review-graph/

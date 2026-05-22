@@ -107,6 +107,10 @@ export async function resolveIncident(incidentId) {
     });
 }
 
+export async function deleteIncident(incidentId) {
+    return fetch(`${API_BASE}/incidents/${incidentId}`, { method: 'DELETE' });
+}
+
 // Filter Rules
 export async function fetchFilters() {
     const res = await fetch(`${API_BASE}/filters`);

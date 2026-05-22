@@ -151,7 +151,7 @@ async def list_incidents():
             "alert_name": incident.alert_name,
             "status": incident.status,
             "severity": incident.severity,
-            "namespace": incident.context,
+            "context": incident.context,
             "start_time": incident.start_time.isoformat(),
             "alert_starts_at": incident.alert_starts_at,
             "last_updated": incident.last_updated.isoformat(),
@@ -192,10 +192,10 @@ async def get_incident(incident_id: str):
         for e in incident.events
     ]
 
-    # Attempt to retrieve a stored report (if resolved + high/critical)
+    # Return cached report or generate on demand for resolved incidents
     report = None
-    if incident.status == "resolved" and incident.severity.lower() in ["high", "critical", "page"]:
-        report = timeline_manager.generate_report(incident_id)
+    if incident.status == "resolved" and incident.severity.lower() in ["high", "critical", "page", "warning"]:
+        report = incident.report or timeline_manager.generate_report(incident_id)
 
     # Dynamic runbook recommendation if not yet executed
     recommendation = None
@@ -207,7 +207,7 @@ async def get_incident(incident_id: str):
         "alert_name": incident.alert_name,
         "status": incident.status,
         "severity": incident.severity,
-        "namespace": incident.context,
+        "context": incident.context,
         "start_time": incident.start_time.isoformat(),
         "alert_starts_at": incident.alert_starts_at,
         "last_updated": incident.last_updated.isoformat(),
@@ -228,6 +228,19 @@ async def get_incident(incident_id: str):
         "events": events,
         "report": report,
     }
+
+@router.delete("/incidents/{incident_id}")
+async def delete_incident(incident_id: str):
+    """Permanently remove a resolved incident from memory."""
+    incident = timeline_manager.incidents.get(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+    if incident.status != "resolved":
+        raise HTTPException(status_code=400, detail="Only resolved incidents can be deleted")
+    del timeline_manager.incidents[incident_id]
+    await manager.broadcast({"type": "INCIDENT_DELETED", "incident_id": incident_id})
+    return {"success": True, "incident_id": incident_id}
+
 
 @router.post("/incidents/{incident_id}/resolve")
 async def resolve_incident_manually(incident_id: str):
@@ -350,8 +363,13 @@ async def get_settings():
     import os
     return {
         "env": {
-            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
-            "TEAMS_WEBHOOK_URL": os.getenv("TEAMS_WEBHOOK_URL", "")
+            "LLM_PROVIDER":      os.getenv("LLM_PROVIDER", "openai"),
+            "LLM_MODEL":         os.getenv("LLM_MODEL", ""),
+            "OPENAI_API_KEY":    os.getenv("OPENAI_API_KEY", ""),
+            "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
+            "GEMINI_API_KEY":    os.getenv("GEMINI_API_KEY", ""),
+            "GROQ_API_KEY":      os.getenv("GROQ_API_KEY", ""),
+            "TEAMS_WEBHOOK_URL": os.getenv("TEAMS_WEBHOOK_URL", ""),
         },
         "connectors": await registry.list_providers()
     }

@@ -13,8 +13,12 @@ export async function renderControlRoomView(container) {
 
     container.innerHTML = '<div class="p-20 text-center animate-pulse font-mono text-primary-light">INITIATING CONTROL LINK...</div>';
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
     try {
-        const res = await fetch(`${API_BASE}/incidents/${state.selectedIncidentId}`);
+        const res = await fetch(`${API_BASE}/incidents/${state.selectedIncidentId}`, { signal: controller.signal });
+        clearTimeout(timeout);
         const inc = await res.json();
 
         container.innerHTML = `
@@ -119,8 +123,8 @@ export async function renderControlRoomView(container) {
                     </div>
                     <div class="flex-grow terminal text-primary-dark/80 p-0 shadow-none border-none overflow-x-hidden">
                         <div class="space-y-1">
-                            <div class="text-text-dark/20">[00:00:01] PROBE: ${inc.labels?.instance || inc.labels?.cluster || inc.namespace || 'unknown'}</div>
-                            <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.namespace}</div>
+                            <div class="text-text-dark/20">[00:00:01] PROBE: ${inc.labels?.instance || inc.labels?.cluster || inc.context || 'unknown'}</div>
+                            <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.context}</div>
                             ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div class="break-words"><span class="text-text-dark/20">[${new Date(e.timestamp).toLocaleTimeString()}]</span> ${e.description}</div>`).join('')}
                             ${!inc.rca_completed ? '<div class="animate-pulse text-primary-dark">_</div>' : ''}
                         </div>
@@ -206,6 +210,17 @@ export async function renderControlRoomView(container) {
 
 
 } catch (e) {
-        container.innerHTML = `<div class="p-20 text-center text-alert-red font-bold">LINK FAILURE: ${e.message}</div>`;
+        clearTimeout(timeout);
+        const isTimeout = e.name === 'AbortError';
+        container.innerHTML = `
+            <div class="p-20 text-center flex flex-col items-center gap-4">
+                <div class="text-alert-red font-bold font-mono text-sm">
+                    ${isTimeout ? 'LINK TIMEOUT — Backend did not respond within 10s' : `LINK FAILURE: ${e.message}`}
+                </div>
+                <button id="cr-retry-btn" class="mt-2 px-6 py-2 bg-primary-light dark:bg-primary-dark text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity">
+                    Retry
+                </button>
+            </div>`;
+        container.querySelector('#cr-retry-btn').onclick = () => renderControlRoomView(container);
     }
 }

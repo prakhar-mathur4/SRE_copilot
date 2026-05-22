@@ -164,10 +164,10 @@ function sortIcon(col) {
 export function renderActiveIncidentsView(container) {
     let active = state.incidents.filter(i => i.status !== 'resolved');
 
-    const uniqueContexts = [...new Set(active.map(i => i.namespace || 'unknown'))].sort();
+    const uniqueContexts = [...new Set(active.map(i => i.context || 'unknown'))].sort();
 
     if (state.activeIncidentsFilter !== 'all') {
-        active = active.filter(i => (i.namespace || 'unknown') === state.activeIncidentsFilter);
+        active = active.filter(i => (i.context || 'unknown') === state.activeIncidentsFilter);
     }
 
     // Apply sort
@@ -230,7 +230,7 @@ export function renderActiveIncidentsView(container) {
             <td class="p-4 font-mono text-[11px] text-muted">${inc.incident_id.slice(0, 8)}</td>
             <td class="p-4"><span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span></td>
             <td class="p-4 font-bold text-text-light dark:text-text-dark">${inc.alert_name}</td>
-            <td class="p-4 font-medium text-muted">${renderContext(inc.namespace)}</td>
+            <td class="p-4 font-medium text-muted">${renderContext(inc.context)}</td>
             <td class="p-4 text-muted text-[11px]" title="${new Date(resolveFireTime(inc).endsWith('Z') ? resolveFireTime(inc) : resolveFireTime(inc) + 'Z').toLocaleString()}">${relativeTime(resolveFireTime(inc))}</td>
             <td class="p-4 text-center">
                 ${inc.dedup_count > 0

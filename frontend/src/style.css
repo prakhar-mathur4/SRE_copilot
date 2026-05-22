@@ -41,7 +41,7 @@ h1, h2, h3, h4, .font-heading {
 }
 
 .pane-header {
-  @apply px-6 py-4 border-b border-surface-hover-light dark:border-surface-hover-dark font-mono text-[10px] font-bold uppercase tracking-widest text-muted;
+  @apply px-6 py-4 border-b border-surface-hover-light dark:border-surface-hover-dark font-mono text-[10px] font-bold uppercase tracking-widest text-text-light dark:text-text-dark;
 }
 
 /* Empty state — standardized no-data placeholder */

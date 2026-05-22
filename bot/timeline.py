@@ -37,6 +37,7 @@ class IncidentState(BaseModel):
     runbook_action: Optional[str] = None
     suggested_remediation: Optional[str] = None  # LLM-generated suggestion, replaces runbook_action for new incidents
     last_updated: datetime
+    report: Optional[str] = None
 
 class TimelineManager:
     def __init__(self):
@@ -100,35 +101,59 @@ class TimelineManager:
     def generate_report(self, incident_id: str) -> Optional[str]:
         if incident_id not in self.incidents:
             return None
-            
+
         incident = self.incidents[incident_id]
-        
-        # Only generate reports for High/Critical (or if unspecified/other for robustness, but rule says high/crit ideally)
-        if incident.severity.lower() not in ["high", "critical", "page"]:
+
+        # Return cached report if already generated
+        if incident.report:
+            return incident.report
+
+        if incident.severity.lower() not in ["high", "critical", "page", "warning"]:
             logger.info(f"Skipping report generation for {incident_id} due to severity {incident.severity}")
             return None
-            
+
         logger.info(f"Generating post-mortem report for incident {incident_id}")
-        
+
+        # Duration
+        duration_secs = int((incident.last_updated - incident.start_time).total_seconds())
+        duration_str = f"{duration_secs // 60}m {duration_secs % 60}s" if duration_secs >= 60 else f"{duration_secs}s"
+
         report_lines = [
             f"# Incident Post-Mortem: {incident.alert_name}",
-            f"**Incident ID:** {incident.incident_id}",
-            f"**Severity:** {incident.severity}",
-            f"**Context:** {incident.context}",
-            f"**Started:** {incident.start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-            f"**Resolved:** {incident.last_updated.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-            "",
-            "## Timeline of Events",
+            f"",
+            f"| Field | Value |",
+            f"|---|---|",
+            f"| **Incident ID** | `{incident.incident_id}` |",
+            f"| **Severity** | {incident.severity.upper()} |",
+            f"| **Context** | {incident.context} |",
+            f"| **Started** | {incident.start_time.strftime('%Y-%m-%d %H:%M:%S UTC')} |",
+            f"| **Resolved** | {incident.last_updated.strftime('%Y-%m-%d %H:%M:%S UTC')} |",
+            f"| **Duration** | {duration_str} |",
+            f"",
+            f"## AI Root Cause Analysis",
+            incident.rca_report if incident.rca_report else "_RCA was not completed for this incident._",
+            f"",
+            f"## Suggested Remediation",
+            incident.suggested_remediation if incident.suggested_remediation else "_No remediation suggestion available._",
+            f"",
+            f"## Timeline of Events",
         ]
-        
+
         for event in incident.events:
-            report_lines.append(f"- **{event.timestamp.strftime('%H:%M:%S')}** [{event.source}]: {event.description}")
-            
+            report_lines.append(f"- **{event.timestamp.strftime('%H:%M:%S')}** `[{event.source}]` {event.description}")
+
+        if incident.raw_diagnostics:
+            report_lines += [
+                f"",
+                f"## Telemetry Snapshot",
+                f"```",
+                incident.raw_diagnostics,
+                f"```",
+            ]
+
         report = "\n".join(report_lines)
-        
-        # In a real system, this might save to a file, Confluence, or send via email.
-        # For now, we log it.
-        logger.info(f"Incident Report Generated:\n{report}")
+        incident.report = report
+        logger.info(f"Post-mortem report generated and cached for {incident_id}")
         return report
 
     def cleanup(self):

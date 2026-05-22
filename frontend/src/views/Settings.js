@@ -54,23 +54,50 @@ export async function renderSettingsView(container) {
                         </div>
                     </div>
 
-                    <!-- Right: Global Config -->
-                    <div class="lg:col-span-4 flex flex-col gap-8">
+                    <!-- Right: AI Engine + Notifications -->
+                    <div class="lg:col-span-4 flex flex-col gap-6">
+
+                        <!-- AI Engine -->
                         <div class="pane p-8 flex flex-col gap-6 bg-surface-light/50 dark:bg-surface-dark/50">
-                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-surface-hover-light dark:border-surface-hover-dark pb-4">Global Secrets</h3>
-                            
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-surface-hover-light dark:border-surface-hover-dark pb-4 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
+                                AI Engine
+                            </h3>
                             <div class="flex flex-col gap-4">
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">OpenAI Key</label>
-                                    <input type="password" id="setting-openai-key" value="${env.OPENAI_API_KEY}" class="input-modern">
+                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Provider</label>
+                                    <select id="setting-llm-provider" class="input-modern">
+                                        <option value="openai"    ${env.LLM_PROVIDER === 'openai'    ? 'selected' : ''}>OpenAI</option>
+                                        <option value="anthropic" ${env.LLM_PROVIDER === 'anthropic' ? 'selected' : ''}>Anthropic</option>
+                                        <option value="gemini"    ${env.LLM_PROVIDER === 'gemini'    ? 'selected' : ''}>Google Gemini</option>
+                                        <option value="groq"      ${env.LLM_PROVIDER === 'groq'      ? 'selected' : ''}>Groq</option>
+                                    </select>
                                 </div>
+                                <div class="flex flex-col gap-2">
+                                    <label id="api-key-label" class="text-[9px] font-bold text-muted uppercase tracking-widest">API Key</label>
+                                    <input type="password" id="setting-llm-key" class="input-modern" autocomplete="off">
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Model <span class="normal-case font-normal">(optional)</span></label>
+                                    <input type="text" id="setting-llm-model" value="${env.LLM_MODEL}" class="input-modern" autocomplete="off">
+                                    <p id="model-hint" class="text-[10px] text-muted"></p>
+                                </div>
+                                <button id="save-ai-btn" class="mt-2 w-full h-10 bg-surface-hover-light dark:bg-surface-hover-dark text-text-light dark:text-text-dark font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-primary-light hover:text-white transition-all">Save AI Config</button>
+                            </div>
+                        </div>
+
+                        <!-- Notifications -->
+                        <div class="pane p-8 flex flex-col gap-6 bg-surface-light/50 dark:bg-surface-dark/50">
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-surface-hover-light dark:border-surface-hover-dark pb-4">Notifications</h3>
+                            <div class="flex flex-col gap-4">
                                 <div class="flex flex-col gap-2">
                                     <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Teams Webhook</label>
                                     <input type="text" id="setting-teams-url" value="${env.TEAMS_WEBHOOK_URL}" class="input-modern">
                                 </div>
-                                <button id="save-env-btn" class="mt-4 w-full h-10 bg-surface-hover-light dark:bg-surface-hover-dark text-text-light dark:text-text-dark font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-primary-light hover:text-white transition-all">Update Secrets</button>
+                                <button id="save-env-btn" class="mt-2 w-full h-10 bg-surface-hover-light dark:bg-surface-hover-dark text-text-light dark:text-text-dark font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-primary-light hover:text-white transition-all">Save</button>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -165,13 +192,55 @@ export async function renderSettingsView(container) {
             };
         });
 
+        // AI Engine — provider metadata
+        const providerMeta = {
+            openai:    { label: 'OpenAI API Key',    keyEnv: 'OPENAI_API_KEY',    placeholder: 'gpt-4o' },
+            anthropic: { label: 'Anthropic API Key', keyEnv: 'ANTHROPIC_API_KEY', placeholder: 'claude-sonnet-4-6' },
+            gemini:    { label: 'Gemini API Key',    keyEnv: 'GEMINI_API_KEY',    placeholder: 'gemini-2.0-flash' },
+            groq:      { label: 'Groq API Key',      keyEnv: 'GROQ_API_KEY',      placeholder: 'llama-3.3-70b-versatile' },
+        };
+
+        const providerSelect = container.querySelector('#setting-llm-provider');
+        const apiKeyInput    = container.querySelector('#setting-llm-key');
+        const apiKeyLabel    = container.querySelector('#api-key-label');
+        const modelInput     = container.querySelector('#setting-llm-model');
+        const modelHint      = container.querySelector('#model-hint');
+
+        function applyProviderUI(provider) {
+            const meta = providerMeta[provider];
+            apiKeyLabel.textContent = meta.label;
+            apiKeyInput.value = env[meta.keyEnv] || '';
+            modelHint.textContent = `Default: ${meta.placeholder}`;
+            if (!modelInput.value) modelInput.placeholder = meta.placeholder;
+        }
+
+        // Init with current provider
+        applyProviderUI(providerSelect.value);
+
+        providerSelect.onchange = (e) => applyProviderUI(e.target.value);
+
+        container.querySelector('#save-ai-btn').onclick = async () => {
+            const provider = providerSelect.value;
+            const meta = providerMeta[provider];
+            const payload = {
+                LLM_PROVIDER: provider,
+                LLM_MODEL:    modelInput.value.trim(),
+                [meta.keyEnv]: apiKeyInput.value.trim(),
+            };
+            // Keep the in-memory env in sync so switching providers shows correct key
+            env[meta.keyEnv] = apiKeyInput.value.trim();
+            env.LLM_PROVIDER = provider;
+            env.LLM_MODEL    = modelInput.value.trim();
+            const res = await updateEnvSettings(payload);
+            if (res.ok) notify('AI config saved', 'success');
+        };
+
         container.querySelector('#save-env-btn').onclick = async () => {
             const payload = {
-                OPENAI_API_KEY: container.querySelector('#setting-openai-key').value,
                 TEAMS_WEBHOOK_URL: container.querySelector('#setting-teams-url').value
             };
             const res = await updateEnvSettings(payload);
-            if (res.ok) notify('Secrets updated', 'success');
+            if (res.ok) notify('Notification settings saved', 'success');
         };
 
     } catch (e) {

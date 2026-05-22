@@ -29,14 +29,14 @@ export default {
           }
         },
         text: {
-          light: '#1E1B4B', // Deep Navy
+          light: '#F8FAFC', // Ghost White
           dark: '#F8FAFC',  // Ghost White
           DEFAULT: '#1E1B4B',
         },
         muted: {
-          light: '#64748b',  // slate-500 — readable on light backgrounds
-          dark: '#94a3b8',   // slate-400 — readable on dark backgrounds
-          DEFAULT: '#475569', // slate-600 — readable on both light and dark backgrounds
+          light: '#F8FAFC',  // Ghost White
+          dark: '#F8FAFC',   // Ghost White
+          DEFAULT: '#F8FAFC', // Ghost White
         },
         alert: {
           red: '#EF4444',

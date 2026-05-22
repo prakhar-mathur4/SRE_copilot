@@ -46,7 +46,7 @@ class ProviderRegistry:
                         # Use url field as context name for K8s if provided
                         self._providers[p_id] = KubernetesProvider(context=cfg.get("url"))
                     elif p_type == "prometheus":
-                        self._providers[p_id] = PrometheusProvider(prometheus_url=p_url)
+                        self._providers[p_id] = PrometheusProvider(prometheus_url=p_url, name=cfg.get("name"))
                     elif p_type == "local_machine":
                         self._providers[p_id] = LocalMachineProvider()
                     elif p_type == "alertmanager":

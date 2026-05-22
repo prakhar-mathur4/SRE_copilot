@@ -37,8 +37,25 @@ async function init() {
     await fetchIncidents();
     await updateHealth();
     
-    // Background Refresh
-    setInterval(updateHealth, 5000);
+    // Background Refresh with countdown
+    let _countdown = 5;
+
+    function _doRefresh() {
+        updateHealth();
+        _countdown = 5;
+    }
+
+    setInterval(() => {
+        _countdown--;
+        const el = document.querySelector('#refresh-countdown');
+        if (el) el.textContent = `${_countdown}s`;
+        if (_countdown <= 0) _doRefresh();
+    }, 1000);
+
+    document.addEventListener('manual-refresh', () => {
+        _doRefresh();
+        fetchIncidents();
+    });
 
     // Fallback poll — only fires when WebSocket is down, self-heals stale state
     setInterval(() => { if (!state.wsConnected) fetchIncidents(); }, 30000);
@@ -77,11 +94,19 @@ async function init() {
                 }
                 break;
             }
+            case 'INCIDENT_DELETED': {
+                const filtered = state.incidents.filter(i => i.incident_id !== data.incident_id);
+                updateState({ incidents: filtered, incidentVersion: state.incidentVersion + 1 });
+                break;
+            }
             case 'RCA_COMPLETE':
                 patchIncident(data.incident_id, { rca_completed: true, rca_report: data.rca });
                 break;
             case 'RUNBOOK_EXECUTED':
                 patchIncident(data.incident_id, { runbook_executed: true, runbook_action: data.action });
+                break;
+            case 'DEDUP_UPDATE':
+                patchIncident(data.incident_id, { dedup_count: data.dedup_count });
                 break;
             case 'EVENT_ADDED': {
                 const inc = state.incidents.find(i => i.incident_id === data.incident_id);

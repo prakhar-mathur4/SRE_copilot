@@ -1,23 +1,18 @@
 """
 AI-based Root Cause Analysis logic.
 """
-import os
 import re
 import logging
 from typing import Tuple
-from openai import AsyncOpenAI
 from bot.models import AlertData
+from bot.llm_client import call_llm, is_llm_configured, active_provider_info
 
 logger = logging.getLogger("sre_copilot")
 
-_client = None
-
-
-def get_openai_client():
-    global _client
-    if _client is None and os.environ.get("OPENAI_API_KEY"):
-        _client = AsyncOpenAI()
-    return _client
+_SYSTEM_PROMPT = (
+    "You are a concise, expert SRE AI assistant. "
+    "Respond only with the requested Markdown — no preamble or trailing commentary."
+)
 
 
 def _extract_remediation(rca_text: str) -> str:
@@ -39,10 +34,10 @@ async def analyze_incident(alert: AlertData, diagnostics_payload: str) -> Tuple[
     Never raises — returns a graceful fallback on any failure.
     """
     alert_name = alert.labels.get("alertname", "Unknown Alert")
-    severity = alert.labels.get("severity", "unknown")
+    severity    = alert.labels.get("severity", "unknown")
     description = alert.annotations.get("description", "No description provided.")
-    namespace = alert.labels.get("namespace", "")
-    instance = alert.labels.get("instance", "")
+    namespace   = alert.labels.get("namespace", "")
+    instance    = alert.labels.get("instance", "")
 
     if "SIMULATED_INCIDENT" in alert_name:
         rca = """## Root Cause Hypothesis
@@ -55,9 +50,13 @@ Thread pool exhaustion in `auth-service` — a database client introduced in the
 4. Monitor CPU and connection count for 10 minutes after restart to confirm recovery."""
         return rca, "Restart auth-service to flush the connection pool, then patch the DB client to close connections properly."
 
-    if not os.environ.get("OPENAI_API_KEY"):
-        logger.info("OPENAI_API_KEY not set — AI RCA skipped.")
-        msg = "### AI Analysis Not Configured\nSet `OPENAI_API_KEY` in Settings to enable automated root cause analysis and remediation suggestions."
+    if not is_llm_configured():
+        info = active_provider_info()
+        msg = (
+            f"### AI Analysis Not Configured\n"
+            f"No API key found for provider **{info['provider']}**. "
+            f"Go to **Settings → AI Engine**, select your provider, and enter your API key."
+        )
         return msg, ""
 
     target_parts = []
@@ -94,19 +93,10 @@ Numbered list of 2-4 concrete, ordered steps an on-call engineer should take imm
 Each step must be one sentence. This is a suggestion only — no automated actions will be taken."""
 
     try:
-        openai_client = get_openai_client()
-        logger.info(f"Sending RCA prompt to LLM for alert: {alert_name}")
-        response = await openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a concise, expert SRE AI assistant. Respond only with the requested Markdown — no preamble or trailing commentary."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=500,
-        )
-        rca = response.choices[0].message.content.strip()
+        info = active_provider_info()
+        logger.info(f"Sending RCA prompt to {info['provider']} ({info['model']}) for alert: {alert_name}")
+        rca = await call_llm(_SYSTEM_PROMPT, prompt)
         return rca, _extract_remediation(rca)
     except Exception as e:
-        logger.error(f"OpenAI API error during RCA for {alert_name}: {e}")
+        logger.error(f"LLM API error during RCA for {alert_name}: {e}")
         return f"### AI Analysis Failed\nUnable to contact the AI engine: `{e}`", ""

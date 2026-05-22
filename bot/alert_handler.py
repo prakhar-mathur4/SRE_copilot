@@ -136,6 +136,14 @@ async def handle_alert(payload: AlertmanagerPayload, background_tasks: Backgroun
     for alert in payload.alerts:
         fingerprint = noise_reducer.process_incoming_alert(alert)
         if not fingerprint:
+            if alert.status != "resolved":
+                fp = noise_reducer.calculate_fingerprint(alert)
+                new_count = noise_reducer.dedup_details.get(fp, {}).get("count", 0)
+                await ws_manager.broadcast({
+                    "type": "DEDUP_UPDATE",
+                    "incident_id": f"inc-{fp}",
+                    "dedup_count": new_count,
+                })
             continue
 
         alert_name = alert.labels.get("alertname", "Unknown")

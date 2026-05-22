@@ -73,11 +73,11 @@ def _inject_filter(query: str, key: str, val: str) -> str:
 
 
 class PrometheusProvider(DiagnosticProvider):
-    def __init__(self, prometheus_url: str = None):
+    def __init__(self, prometheus_url: str = None, name: str = None):
         # Prefer environment variable if not passed; strip trailing slash to avoid double-slash URLs
         url = prometheus_url or os.getenv("PROMETHEUS_URL", "")
         self.prometheus_url = url.rstrip("/")
-        self.provider_name = "Prometheus VM Monitor"
+        self.provider_name = name or "Prometheus VM Monitor"
         self.provider_type = "prometheus"
 
     async def get_health_metrics(self) -> Dict[str, Any]:

@@ -23,18 +23,37 @@ export function renderHeader() {
             ` : ''}
         </div>
         
-        <div class="flex items-center gap-6">
-            <div class="hidden md:flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-primary-light/60 dark:text-muted">
+        <div class="flex items-center gap-3">
+            <div class="hidden md:flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-primary-light/60 dark:text-muted">
                 <button class="px-3 py-1 border border-surface-hover-light dark:border-surface-hover-dark rounded hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors" id="fire-test-btn">Fire Alert</button>
             </div>
 
+            <!-- Refresh button + countdown -->
+            <div class="flex items-center gap-1.5">
+                <button id="manual-refresh-btn" title="Refresh now" class="flex items-center justify-center w-7 h-7 rounded border border-surface-hover-light dark:border-surface-hover-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors text-muted hover:text-text-light dark:hover:text-text-dark">
+                    <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                </button>
+                <span id="refresh-countdown" class="text-[9px] font-mono text-muted w-5 text-center">5s</span>
+            </div>
         </div>
     `;
 
     // Events
     const testBtn = header.querySelector('#fire-test-btn');
-    if (testBtn) {
-        testBtn.onclick = () => showDiagnosticModal();
+    if (testBtn) testBtn.onclick = () => showDiagnosticModal();
+
+    const refreshBtn = header.querySelector('#manual-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.onclick = () => {
+            document.dispatchEvent(new CustomEvent('manual-refresh'));
+            // Spin animation
+            const icon = header.querySelector('#refresh-icon');
+            if (icon) {
+                icon.style.transition = 'transform 0.5s ease';
+                icon.style.transform = 'rotate(360deg)';
+                setTimeout(() => { icon.style.transition = ''; icon.style.transform = ''; }, 500);
+            }
+        };
     }
 }
 
