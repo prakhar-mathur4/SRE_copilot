@@ -134,13 +134,13 @@ async function init() {
             currentView     = newState.view;
             incidentVersion = newState.incidentVersion;
             renderView(newState.view);
-        } else if (newState.view === 'active' && incidentsChanged) {
-            // Data update on active view — debounce to collapse burst of patches
+        } else if ((newState.view === 'active' || newState.view === 'archive') && incidentsChanged) {
+            // Data update on active/archive view — debounce to collapse burst of patches
             // into a single DOM rebuild after the last event settles
             clearTimeout(renderTimer);
             renderTimer = setTimeout(() => {
                 incidentVersion = state.incidentVersion;
-                renderView('active');
+                renderView(newState.view);
             }, 150);
         }
     });

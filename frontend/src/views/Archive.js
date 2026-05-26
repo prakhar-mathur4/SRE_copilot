@@ -8,6 +8,12 @@ import { marked } from 'marked';
 // Severities that generate a post-mortem report on the backend
 const REPORT_SEVERITIES = new Set(['critical', 'page', 'warning', 'high']);
 
+const PAGE_SIZE = 20;
+
+// Report cache: incident_id → { report: string|null }
+// Avoids re-fetching on every modal open. Cleared on delete.
+const reportCache = new Map();
+
 const SORT_OPTIONS = [
     { value: 'date_desc', label: 'Newest First' },
     { value: 'date_asc',  label: 'Oldest First' },
@@ -86,9 +92,14 @@ export function renderArchiveView(container) {
     resolved = sortIncidents(resolved, filters.sortBy);
 
     const isFiltered = filters.search || filters.severity !== 'all';
+    const totalFiltered = resolved.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+    const page = Math.min(filters.page || 0, totalPages - 1);
+    const paginated = resolved.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
     const countLabel = isFiltered
-        ? `<span class="text-primary-light dark:text-primary-dark font-black">${resolved.length}</span> <span class="opacity-40 font-normal text-[9px]">of ${allResolved.length}</span>`
-        : `<span class="text-primary-light dark:text-primary-dark font-black">${resolved.length}</span>`;
+        ? `<span class="text-primary-light dark:text-primary-dark font-black">${totalFiltered}</span> <span class="opacity-40 font-normal text-[9px]">of ${allResolved.length}</span>`
+        : `<span class="text-primary-light dark:text-primary-dark font-black">${allResolved.length}</span>`;
 
     const selectClass = 'bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-lg h-10 px-4 text-sm focus:outline-none focus:ring-2 ring-primary-light/50 text-text-light dark:text-text-dark';
 
@@ -119,16 +130,18 @@ export function renderArchiveView(container) {
                     </select>
                 </div>
                 <div class="flex-grow overflow-auto p-4 flex flex-col gap-3">
-                    ${resolved.length === 0 ? `
+                    ${totalFiltered === 0 ? `
                         <div class="empty-state flex flex-col items-center gap-3 mt-12">
                             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-25"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="11"/><line x1="11" y1="14" x2="11.01" y2="14"/></svg>
                             <p>${isFiltered ? 'No resolved incidents match your filters' : 'No resolved incidents yet'}</p>
                         </div>` : ''}
-                    ${resolved.map(inc => {
+                    ${paginated.map(inc => {
                         const sev = inc.severity.toLowerCase();
                         const sevBadge = (sev === 'critical' || sev === 'page') ? '1' : sev === 'warning' ? '2' : '3';
                         const resolvedAt = new Date(inc.last_updated);
-                        const startedAt  = new Date(inc.start_time);
+                        const fireTime   = inc.alert_starts_at && !inc.alert_starts_at.startsWith('0001')
+                            ? inc.alert_starts_at : inc.start_time;
+                        const startedAt  = new Date(fireTime);
                         const durationMs = Math.max(0, resolvedAt - startedAt);
                         const durationStr = durationMs >= 60000
                             ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
@@ -165,14 +178,20 @@ export function renderArchiveView(container) {
                         </div>`;
                     }).join('')}
                 </div>
+                ${totalPages > 1 ? `
+                <div class="flex items-center justify-between px-4 py-3 border-t border-surface-hover-light dark:border-surface-hover-dark flex-shrink-0">
+                    <button id="archive-prev" class="btn-outline h-8 px-4 text-[10px] ${page === 0 ? 'opacity-30 pointer-events-none' : ''}">← Prev</button>
+                    <span class="text-[10px] text-muted">Page <span class="text-text-light dark:text-text-dark font-bold">${page + 1}</span> of ${totalPages}</span>
+                    <button id="archive-next" class="btn-outline h-8 px-4 text-[10px] ${page >= totalPages - 1 ? 'opacity-30 pointer-events-none' : ''}">Next →</button>
+                </div>` : ''}
             </div>
         </div>
     `;
 
-    // Search
+    // Search — reset page on new query
     const search = container.querySelector('#archive-search');
     search.oninput = (e) => {
-        updateState({ archiveFilters: { ...state.archiveFilters, search: e.target.value } }, true);
+        updateState({ archiveFilters: { ...state.archiveFilters, search: e.target.value, page: 0 } }, true);
         renderArchiveView(container);
     };
     if (filters.search) {
@@ -180,21 +199,31 @@ export function renderArchiveView(container) {
         search.setSelectionRange(search.value.length, search.value.length);
     }
 
-    // Severity filter
+    // Severity filter — reset page
     container.querySelector('#archive-sev-filter').onchange = (e) => {
-        updateState({ archiveFilters: { ...state.archiveFilters, severity: e.target.value } }, true);
+        updateState({ archiveFilters: { ...state.archiveFilters, severity: e.target.value, page: 0 } }, true);
         renderArchiveView(container);
     };
 
-    // Sort
+    // Sort — reset page
     container.querySelector('#archive-sort').onchange = (e) => {
-        updateState({ archiveFilters: { ...state.archiveFilters, sortBy: e.target.value } }, true);
+        updateState({ archiveFilters: { ...state.archiveFilters, sortBy: e.target.value, page: 0 } }, true);
         renderArchiveView(container);
     };
 
-    // Clear all filters
+    // Clear all filters — reset page
     container.querySelector('#archive-clear-filters')?.addEventListener('click', () => {
-        updateState({ archiveFilters: { search: '', severity: 'all', sortBy: filters.sortBy } }, true);
+        updateState({ archiveFilters: { search: '', severity: 'all', sortBy: filters.sortBy, page: 0 } }, true);
+        renderArchiveView(container);
+    });
+
+    // Pagination
+    container.querySelector('#archive-prev')?.addEventListener('click', () => {
+        updateState({ archiveFilters: { ...state.archiveFilters, page: Math.max(0, page - 1) } }, true);
+        renderArchiveView(container);
+    });
+    container.querySelector('#archive-next')?.addEventListener('click', () => {
+        updateState({ archiveFilters: { ...state.archiveFilters, page: Math.min(totalPages - 1, page + 1) } }, true);
         renderArchiveView(container);
     });
 
@@ -228,6 +257,7 @@ export function renderArchiveView(container) {
             try {
                 const res = await deleteIncident(btn.dataset.id);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                reportCache.delete(btn.dataset.id);
                 const updated = state.incidents.filter(i => i.incident_id !== btn.dataset.id);
                 updateState({ incidents: updated, incidentVersion: state.incidentVersion + 1 }, true);
                 renderArchiveView(container);
@@ -307,17 +337,27 @@ async function showReportModal(incidentId) {
     overlay.querySelector('#open-control-room-btn')?.addEventListener('click', openCR);
     overlay.querySelector('#open-control-room-btn-footer')?.addEventListener('click', openCR);
 
-    try {
-        const res = await fetch(`${API_BASE}/incidents/${incidentId}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        overlay.querySelector('#report-content').innerHTML = data.report
-            ? marked.parse(data.report)
+    const renderReport = (report) => {
+        overlay.querySelector('#report-content').innerHTML = report
+            ? marked.parse(report)
             : `<div class="p-16 text-center border-2 border-dashed border-surface-hover-light dark:border-surface-hover-dark rounded-2xl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-4 opacity-20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <h3 class="text-lg font-bold mb-2">No Post-Mortem Report</h3>
                 <p class="opacity-60 text-sm">Reports are generated only for resolved Critical, Page, and Warning incidents.</p>
                </div>`;
+    };
+
+    if (reportCache.has(incidentId)) {
+        renderReport(reportCache.get(incidentId));
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/incidents/${incidentId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        reportCache.set(incidentId, data.report ?? null);
+        renderReport(data.report);
     } catch (e) {
         overlay.querySelector('#report-content').innerHTML = `
             <div class="p-16 text-center border-2 border-dashed border-surface-hover-light dark:border-surface-hover-dark rounded-2xl">

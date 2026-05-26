@@ -58,7 +58,8 @@ export const state = {
     archiveFilters: {
         search: '',
         severity: 'all',
-        sortBy: 'date_desc'
+        sortBy: 'date_desc',
+        page: 0
     },
     activityLog: [],      // rolling buffer of last 30 WS events for Dashboard feed
     incidentVersion: 0,   // increments on any incident data change, triggers re-render

@@ -1,8 +1,24 @@
 # Story Artifacts Review — SRE Copilot
 **Reviewed by:** Product Owner (AI-assisted)
-**Date:** 2026-05-11
+**Date:** 2026-05-22
+**Previous review:** 2026-05-11
 **Source artifacts:** `aidlc-docs/story-artifacts/`
 **Compared against:** Live codebase at `frontend/src/` and `bot/`
+
+---
+
+## Changes Since Last Review (2026-05-11 → 2026-05-22)
+
+| Area | What Changed | Story Impact |
+|------|-------------|-------------|
+| **Multi-provider LLM** | `bot/llm_client.py` added — supports OpenAI, Anthropic, Gemini, Groq selectable via `LLM_PROVIDER` env var | US04: closes the "OpenAI only" gap |
+| **Keyword PromQL catalog** | Prometheus provider now maps alert name keywords (cpu, disk, memory, network, latency, errors) to targeted PromQL queries, with label injection per instance | US03: closes the "alert-type-to-diagnostic mapping" gap |
+| **Graceful telemetry pipeline** | Diagnostics failure no longer blocks the pipeline; `telemetry_available` flag set; AI RCA always runs even without telemetry | US03, US04: more resilient pipeline |
+| **Context resolution** | `_resolve_context()` in `alert_handler.py` picks the best label from a priority chain (namespace → instance → service → job → cluster → region → host → pod) | US01: richer incident context |
+| **Archive overhaul** | Delete flow, search/filter/sort, pagination (20/page), report cache, live auto-refresh via state subscriber, duration uses `alert_starts_at` | US06: significant UX improvement |
+| **Control Room remediation** | Removed broken "Approve Execution" button; now shows AI-generated `suggested_remediation` as read-only suggestion | US05: button removed (no regression in execution — it never worked) |
+| **Unconfigured LLM UX** | When no API key set, RCA returns a clear "Not Configured" message pointing to Settings instead of silent mock | US04: better operator experience |
+| **Documentation** | `pages/` folder with full documentation for Archive, Control Room, Active Incidents, and Dashboard views | Non-story |
 
 ---
 
@@ -10,20 +26,20 @@
 
 SRE Copilot is an AI-assisted multi-infrastructure incident management platform. The story artifacts define 8 user stories across incident detection, Teams notifications, diagnostics, AI RCA, runbook automation, post-mortem reporting, pod management, and chaos engineering.
 
-**Overall alignment: 7.5 / 10**
+**Overall alignment: 8.1 / 10** *(up from 7.5 on 2026-05-11)*
 
-The core incident pipeline (US01 → US06) is well-implemented and largely matches the stories. The product has gone further than the stories in several areas (noise reduction, multi-infrastructure connectors, CEL playground, bento-style Control Room). However, three significant gaps exist: runbook execution is still a stub, persistent storage was never built, and the MS Graph API threading requirement from US02 was not implemented. The chaos engine and pod management stories are fully matched.
+The core incident pipeline (US01 → US06) is strong and has improved materially since the last review. Multi-provider LLM support (US04) and the keyword PromQL catalog (US03) close two previously noted gaps. The archive UI (US06) is now production-quality. The two remaining critical gaps are unchanged: **runbook execution is still a stub** and **there is no persistent storage**. Authentication is still absent.
 
-| Story | Title | AC Match | Gaps |
-|-------|-------|----------|------|
-| US01 | Incident Detection | ✅ Full | Minor: no formal audit log |
-| US02 | Teams Notification | 🟡 Partial | Graph API threading not built |
-| US03 | Automated Diagnostics | ✅ Full | Demo-mode K8s unreachable warning |
-| US04 | AI RCA | ✅ Full | Local LLM fallback not built |
-| US05 | Runbook Automation | 🟡 Partial | Execution is a stub; no actual script run |
-| US06 | Post-Mortem Report | 🟡 Partial | No email delivery; no persistent storage |
-| US07 | Pod Management | ✅ Full | Multi-cluster limited to demo |
-| Chaos | Chaos Engine | ✅ Full | No gap |
+| Story | Title | Score | Delta | Status |
+|-------|-------|-------|-------|--------|
+| US01 | Incident Detection | 9/10 | → | No change |
+| US02 | Teams Notification | 7/10 | → | No change |
+| US03 | Automated Diagnostics | 9/10 | ↑ +1 | Keyword PromQL + graceful failure |
+| US04 | AI RCA | 9/10 | ↑ +1 | Multi-provider LLM built |
+| US05 | Runbook Automation | 4/10 | → | Still a stub; Approve button removed |
+| US06 | Post-Mortem Report | 7/10 | → | Archive UX improved; persistence still missing |
+| US07 | Pod Management | 9/10 | → | No change |
+| Chaos | Chaos Engine | 9/10 | → | No change |
 
 ---
 
@@ -38,22 +54,23 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 |---|---------------------|--------|----------|
 | 1 | Expose webhook endpoint `/alerts/webhook` | ✅ | `POST /api/v1/alerts/webhook` — live in `bot/alert_handler.py` |
 | 2 | Accept standard Alertmanager JSON payload | ✅ | Parses version 4 Alertmanager schema: `alertname`, `labels`, `annotations`, `status`, `startsAt`, `fingerprint` |
-| 3 | Parse `alertname`, `severity`, `namespace`, `pod`, `status` | ✅ | All parsed; namespace resolved from label priority (`namespace` > `exported_namespace` > `job`) |
+| 3 | Parse `alertname`, `severity`, `namespace`, `pod`, `status` | ✅ | All parsed; context resolved via `_resolve_context()` with priority chain: namespace → instance → service → job → cluster → region → host → pod |
 | 4 | Log incoming alerts for auditing | 🟡 | Python `logging` used — functional but not a formal audit trail; no persistent log store |
 
 ### What Was Built Beyond the Story
-- **Deduplication**: fingerprint-based dedup with `dedup_count` tracking (not in story)
-- **Re-fire detection**: if an alert re-fires after resolution, `start_time` and `alert_starts_at` are reset — important edge case handled
-- **Synthetic test alert**: `POST /api/v1/alerts/test` for dev/chaos purposes (not in story)
+- **Deduplication**: fingerprint-based dedup with `dedup_count` tracking
+- **Re-fire detection**: if an alert re-fires after resolution, `start_time` and `alert_starts_at` are reset
+- **Synthetic test alert**: `POST /api/v1/alerts/test` for dev/chaos purposes
 - **Noise reduction pre-processing**: CEL filter rules and maintenance windows evaluated before incident creation
+- **Context label priority chain**: richer than the story's "namespace/pod" — picks the most meaningful label from 10 candidates
 
 ### Gaps / Risks
-- **No persistent audit log**: The story requires logging for auditing but only Python `logging` is used. If the process restarts, all history is lost. This is a compliance risk for enterprise customers.
-- **No schema validation**: Alertmanager payload is trusted as-is; malformed payloads could cause silent failures.
+- **No persistent audit log**: Only Python `logging`. Process restart loses all history. Compliance risk.
+- **No schema validation**: Alertmanager payload trusted as-is; malformed payloads could cause silent failures.
 
 ### Product Owner Recommendation
-- Open a tech debt story: **"Persist alert audit log to file/database"**
-- Add input schema validation (Pydantic model) on the webhook endpoint
+- Open tech debt story: **"Persist alert audit log to file/database"**
+- Add Pydantic schema validation on the webhook endpoint
 
 ---
 
@@ -73,18 +90,18 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 | 5 | Follow-up "Resolved" notification | ✅ | Teams card updated on resolution with status change |
 
 ### What Was Built Beyond the Story
-- Teams card also includes RCA summary and runbook action (beyond original spec)
-- Simulation Mode warning in UI header (not a Teams story, but good UX)
+- Teams card includes RCA summary and suggested remediation (beyond original spec)
+- Simulation Mode warning in UI header
 
-### Gaps / Risks
-- **MS Graph API not implemented**: The story explicitly lists "MS Graph API" as an integration answer. Without it, Teams messages cannot be threaded — every notification creates a new card. This breaks the "follow-up resolved notification" UX on mobile (no thread context).
+### Gaps / Risks *(unchanged since last review)*
+- **MS Graph API not implemented**: Every notification creates a new card. No threading. Breaks follow-up UX on mobile.
 - **No retry logic**: If the webhook POST fails, the notification is silently dropped.
-- **Teams URL hardcoded to env var**: No per-connector Teams channel routing (all alerts go to one channel).
+- **Single channel**: All alerts go to one Teams channel. No per-severity routing.
 
 ### Product Owner Recommendation
-- **High priority gap**: Implement Graph API threading. This is table-stakes for enterprise on-call workflows.
-- Add webhook POST retry with exponential backoff (3 attempts)
-- Future: per-severity channel routing (critical → #alerts-critical, warning → #alerts-warning)
+- **High priority**: Implement Graph API threading — table-stakes for enterprise on-call.
+- Add webhook POST retry with exponential backoff (3 attempts).
+- Future: per-severity channel routing.
 
 ---
 
@@ -103,19 +120,19 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 | 4 | Store diagnostics and pass to AI engine | ✅ | Stored in `incident.raw_diagnostics`; forwarded to `ai_analysis.py` |
 | 5 | Summary/link appended to Teams alert | ✅ | Diagnostic summary embedded in Teams Adaptive Card |
 
-### What Was Built Beyond the Story
-- **Multi-provider fallback**: if K8s unavailable, falls back to Prometheus metrics, then local machine (psutil). Story only mentioned K8s.
-- **Alert-type-to-diagnostic mapping**: mentioned in story notes as desired — implemented via provider registry
-- **Diagnostics failure handling**: `diagnostics_failed` flag set; UI shows error banner in Control Room; runbook approval button disabled
+### What Was Built Beyond the Story *(updated)*
+- **Keyword PromQL catalog**: `prometheus_provider.py` maps alert-name keywords to targeted metric queries. Categories: `cpu`, `memory`, `disk`, `network`, `latency`, `errors`, `down`. Falls back to a general set if no keyword matches.
+- **Label injection**: `_inject_filter()` adds `instance` or `namespace` labels into every PromQL selector, scoping queries to the affected host.
+- **Graceful telemetry failure**: `telemetry_available` flag tracks outcome; AI RCA always runs even with no telemetry. Control Room shows an amber "NO TELEMETRY" badge and a warning banner instead of blocking.
+- **Multi-provider fallback**: K8s → Prometheus → LocalMachine. Story only mentioned K8s.
+- **Alert-type-to-diagnostic mapping**: Now implemented via keyword catalog (was only noted as desired in the previous review).
 
 ### Gaps / Risks
-- **Demo-mode failure**: When K8s is not configured (e.g., local dev), diagnostics fail with "Infrastructure unreachable". The fallback chain helps, but the error path UI needs clearer user guidance.
-- **No RBAC documentation**: Story specifies "Bot runs in dedicated K8s namespace with RBAC" — no RBAC manifest found in the repo. This is a deployment gap, not a code gap.
-- **Node metrics**: Node-level CPU/memory is called but may return mock data in demo mode.
+- **Demo-mode failure**: When K8s not configured and Prometheus returns no data, the fallback chain reaches LocalMachine (psutil). Reasonable for dev, but misleading in a customer demo.
+- **No RBAC documentation**: No K8s RBAC manifest in the repo. Deployment gap, not a code gap.
 
 ### Product Owner Recommendation
-- Add a `DEPLOYMENT.md` with the K8s RBAC manifest (ServiceAccount, ClusterRole, ClusterRoleBinding)
-- Add a "Diagnostics unavailable — check connector settings" call-to-action link in the Control Room error banner
+- Add `DEPLOYMENT.md` with K8s RBAC manifest (ServiceAccount, ClusterRole, ClusterRoleBinding)
 - Open story: **"Diagnostic dry-run / connectivity check on connector save"**
 
 ---
@@ -129,26 +146,28 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 
 | # | Acceptance Criterion | Status | Evidence |
 |---|---------------------|--------|----------|
-| 1 | Send alert context + diagnostics to LLM | ✅ | `ai_analysis.py` sends labels, annotations, raw_diagnostics to OpenAI |
-| 2 | Structured response: Summary, Root Causes, Next Steps | ✅ | Prompt enforces Markdown format with "Root Cause Hypothesis" and "Suggested Mitigation" |
+| 1 | Send alert context + diagnostics to LLM | ✅ | `ai_analysis.py` sends labels, annotations, raw_diagnostics to configured LLM |
+| 2 | Structured response: Summary, Root Causes, Next Steps | ✅ | Prompt enforces Markdown with "Root Cause Hypothesis" and "Suggested Remediation" sections |
 | 3 | Forward analysis to MS Teams | ✅ | RCA (truncated to 1000 chars) embedded in Teams Adaptive Card |
-| 4 | Analysis generated within <30 seconds | ✅ | Async pipeline; typical latency 3–8s (GPT-4 dependent) |
+| 4 | Analysis generated within <30 seconds | ✅ | Async pipeline; typical latency 3–8s (provider-dependent) |
 
-### What Was Built Beyond the Story
-- **UI rendering**: RCA displayed as rendered Markdown in the Control Room "AI RCA" tab (using `marked` library) — far beyond original spec of just forwarding to Teams
-- **Fallback mock RCA**: When no `OPENAI_API_KEY`, realistic mock analysis is returned (CPU spike simulation, connection leak narrative) — good for demo without API cost
-- **Temperature control**: 0.2 (deterministic) — not in story but good engineering decision
-- **Raw telemetry tab**: Alongside RCA, raw diagnostic output is shown in a terminal-style view
+### What Was Built Beyond the Story *(updated)*
+- **Multi-provider LLM** (`bot/llm_client.py`): OpenAI (gpt-4o), Anthropic (claude-sonnet-4-6), Gemini (gemini-2.0-flash), Groq (llama-3.3-70b-versatile). Selectable via `LLM_PROVIDER` env var; model overridable via `LLM_MODEL`. This closes the "OpenAI only" gap from the previous review.
+- **Unconfigured LLM UX**: When no API key is set, returns a formatted "AI Analysis Not Configured" message with a direct link to Settings — not a silent mock.
+- **`_extract_remediation()`**: Pulls the first remediation step from the RCA and stores it separately as `suggested_remediation` for display in the Control Room remediation card.
+- **UI rendering**: RCA displayed as rendered Markdown in Control Room (using `marked`).
+- **Temperature 0.2**: Deterministic, reproducible outputs.
 
 ### Gaps / Risks
-- **OpenAI only**: Story mentions "OpenAI, Anthropic, local" LLM support. Only OpenAI is implemented. For enterprise customers with data privacy requirements, no local LLM option (Llama/Ollama) is available.
-- **Max tokens 600**: Some complex incidents may produce truncated RCA — no indicator in UI when content is cut off.
-- **No source citations**: Story requirement "always provide sources (log links, event references)" is in the VPP risk mitigations but not enforced in the AI prompt.
+- **No local/on-premise LLM**: Groq (cloud) hosts Llama 3, but there is no Ollama/local Llama integration. Customers with strict data-residency requirements still cannot use a fully on-premise setup.
+- **Max tokens 500**: Complex incidents with long diagnostics may produce truncated RCA. No UI indicator when output is cut off.
+- **`GPT-4o Vision` badge**: The Control Room card header still hardcodes "GPT-4o Vision" regardless of the actual configured provider.
+- **No source citations**: The AI prompt does not enforce referencing specific log lines or events.
 
 ### Product Owner Recommendation
-- **Medium priority**: Add Anthropic Claude or Ollama as alternative LLM providers (abstract behind `LLMProvider` interface)
-- Add citation enforcement to the OpenAI prompt: "Reference specific log lines or events"
-- Add token usage tracking for cost visibility in Settings page
+- Add an Ollama integration to `llm_client.py` for true on-premise support
+- Fix the hardcoded "GPT-4o Vision" badge — replace with `active_provider_info()` call
+- Raise `max_tokens` to 800–1000 for complex incidents
 
 ---
 
@@ -161,30 +180,27 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 
 | # | Acceptance Criterion | Status | Evidence |
 |---|---------------------|--------|----------|
-| 1 | Repository of predefined runbooks (Python/Ansible/bash) | ❌ | No actual runbook scripts exist; only recommendation strings |
-| 2 | Map alert names to runbooks | 🟡 | `runbook_executor.py` returns action strings (e.g., "Restart target resource") but no actual mapping table |
-| 3 | Present runbook as clickable action in Teams | 🟡 | Teams card shows runbook action text, but no interactive "click to execute" Teams button |
-| 4 | Execute runbook upon user action | ❌ | Execution is logged only — no actual script, kubectl, or Ansible is run |
-| 5 | Report success/failure back to Teams | 🟡 | Teams notified of "Mitigation Applied" status but with no actual outcome data |
+| 1 | Repository of predefined runbooks (Python/Ansible/bash) | ❌ | No actual runbook scripts exist; only hardcoded suggestion strings |
+| 2 | Map alert names to runbooks | 🟡 | `runbook_executor.py` maps 4 alert names to text strings. No real mapping table or script library. |
+| 3 | Present runbook as clickable action in Teams | 🟡 | Teams card shows runbook action text; no interactive "click to execute" button |
+| 4 | Execute runbook upon user action | ❌ | No actual script, kubectl, or Ansible is run. The Control Room "Approve Execution" button was removed in this review cycle. |
+| 5 | Report success/failure back to Teams | 🟡 | Teams notified of "Mitigation Applied" but with no real execution outcome |
 
-### What Was Built Beyond the Story
-- **Human-in-the-loop UI**: Control Room Remediation panel shows proposed command, requires typing "EXECUTE" to confirm — good safety gate not in original story
-- **Diagnostics-gated approval**: If diagnostics failed, the Execute button is disabled — prevents blind execution
+### Notable Change Since Last Review
+The Control Room remediation panel was redesigned. The "Approve Execution" button (which was broken — caused a 422 error due to missing `rca_summary` field) was removed. The panel now shows the AI-generated `suggested_remediation` text as **read-only**, with a disclaimer: *"Suggestion only — all actions must be performed manually by an on-call engineer."* This is a UX improvement but does not move the story forward.
 
-### Gaps / Risks
-- **This is the biggest gap in the product.** The core value proposition — "click to fix" — is not delivered. The system recommends but cannot act.
-- No runbook library exists (no Python scripts, no Ansible playbooks, no bash)
-- No MS Graph API for Teams interactive buttons (mentioned in story notes)
-- No success/failure feedback loop — impossible to validate if remediation worked
+### Gaps / Risks *(unchanged)*
+- **This remains the biggest gap in the product.** The core value proposition — "click to fix" — is not delivered.
+- No runbook library (no Python scripts, Ansible playbooks, or bash)
+- No real execution path of any kind
 
 ### Product Owner Recommendation
-- **High priority sprint**: Build the first 3 real runbooks:
+- **High priority sprint**: Build the first 3 real runbooks using the existing Kubernetes provider:
   1. Restart pod (`kubectl rollout restart deployment/<name>`)
   2. Scale deployment (`kubectl scale deployment/<name> --replicas=N`)
-  3. Trigger log capture (automated `kubectl logs` dump to file)
-- Implement execution in `runbook_executor.py` using the existing Kubernetes provider
-- Add execution result (stdout/stderr) back to timeline and Teams card
-- Open a dedicated epic: **"Runbook Library v1"**
+  3. Automated log capture to file
+- Re-introduce the approval UI once execution is real — the human-in-the-loop gate is the right design
+- Open dedicated epic: **"Runbook Library v1"**
 
 ---
 
@@ -197,26 +213,31 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 
 | # | Acceptance Criterion | Status | Evidence |
 |---|---------------------|--------|----------|
-| 1 | Log timestamps for all pipeline stages | ✅ | `TimelineEvent` objects added at: alert fire, diagnostics, AI RCA, runbook, resolution |
+| 1 | Log timestamps for all pipeline stages | ✅ | `TimelineEvent` objects added at: alert fire, telemetry collection, AI RCA, runbook, resolution |
 | 2 | Compile chronological timeline on resolution | ✅ | Timeline manager builds event list; sorted by timestamp |
-| 3 | AI summarizes entire event into Markdown report | ✅ | Report generated on `status = resolved` for high/critical/page severity |
-| 4 | Save report to directory or send via email/Teams | 🟡 | Stored in memory only; shown in Archive UI; not saved to disk or emailed |
+| 3 | AI summarizes entire event into Markdown report | ✅ | Report generated on `status = resolved` for high/critical/page/warning severity |
+| 4 | Save report to directory or send via email/Teams | 🟡 | In memory only; shown in Archive UI; not saved to disk or emailed |
 
-### What Was Built Beyond the Story
-- **Archive UI**: Full post-mortem ledger page with search, severity filter, and Markdown-rendered report modal — far beyond "save to directory"
-- **Report gating**: Only critical/page/high severity generates a report — reasonable product decision
-- **24h retention**: Incidents expire after 24 hours (noted in VPP as limitation)
+### Archive UX Improvements Since Last Review
+The Archive page was substantially overhauled and is now production-quality:
+- Search by name, ID, or context; severity and sort filters; state persisted across navigation
+- Pagination (20 per page)
+- Delete individual incidents with confirmation dialog
+- Report modal with cached API call (no refetch on re-open)
+- Live auto-refresh when incidents resolve while the view is open
+- Duration uses `alert_starts_at` (original fire time) over `start_time`
 
-### Gaps / Risks
-- **No persistence**: If the backend restarts, all incident history and reports are lost. This makes the Archive page unreliable for real post-mortem use.
-- **No email delivery**: Story explicitly mentions email as a delivery option — not implemented.
-- **24h expiry**: Reports disappear the next day. For a post-mortem tool, this is a critical gap — teams often review incidents 2–5 days later.
+These improvements do not close the story ACs (no persistence, no email), but the surface for reviewing reports is now solid.
+
+### Gaps / Risks *(unchanged at AC level)*
+- **No persistence**: Backend restart loses all history. Archive is unreliable for real post-mortem use.
+- **No email delivery**: Story mentions email — not implemented.
+- **24h expiry**: Reports disappear after 24 hours. Teams typically review incidents 2–5 days later.
 
 ### Product Owner Recommendation
-- **Critical gap for enterprise use**: Implement SQLite or PostgreSQL persistence for incidents and reports
-- Minimum viable persistence: write resolved incident JSON + report to `./data/incidents/{date}/` on disk
-- Open story: **"Persist incidents to disk/database on resolution"**
-- Email delivery can wait; persistence cannot
+- **Critical for enterprise**: Implement file-based or SQLite persistence for resolved incidents on resolution
+- Minimum viable: write `./data/incidents/{date}/{incident_id}.json` on resolution
+- Email delivery can follow; persistence cannot wait
 
 ---
 
@@ -230,91 +251,78 @@ The core incident pipeline (US01 → US06) is well-implemented and largely match
 | # | Acceptance Criterion | Status | Evidence |
 |---|---------------------|--------|----------|
 | 1 | Tabular view of all pods across namespaces | ✅ | Pods page with 11-column table |
-| 2 | Metadata: Name, Namespace, Kind, Node IP, Age | ✅ | All present in table |
+| 2 | Metadata: Name, Namespace, Kind, Node IP, Age | ✅ | All present |
 | 3 | Health signals: Status, Restart count, CPU/Memory | ✅ | Status with colored dot, Restarts (orange if >0), CPU/Memory columns |
-| 4 | Namespace filtering | ✅ | Dropdown filter, auto-populated with discovered namespaces |
-| 5 | YAML inspection | ✅ | Modal terminal with rendered pod YAML manifest |
-| 6 | Delete/restart pod with confirmation | ✅ | Delete button with `confirm()` dialog; `DELETE /api/v1/pods/{ns}/{name}` |
-| 7 | Multi-cluster transparency | 🟡 | Cluster column shown; multi-cluster aggregation architecture present but limited to one cluster in demo |
+| 4 | Namespace filtering | ✅ | Dropdown filter, auto-populated |
+| 5 | YAML inspection | ✅ | Modal terminal with rendered pod YAML |
+| 6 | Delete/restart pod with confirmation | ✅ | Delete with `confirm()`; `DELETE /api/v1/pods/{ns}/{name}` |
+| 7 | Multi-cluster transparency | 🟡 | Cluster column shown; limited to one cluster in demo |
 
-### What Was Built Beyond the Story
-- Auto-refresh every 5 seconds with live indicator animation
-- Namespace dropdown auto-updates as new namespaces are discovered
-- Kind badge (Pod, Deployment, etc.) styled distinctly
-- Operation buttons per row (view YAML + delete) with hover reveal
-
-### Gaps / Risks
-- **Multi-cluster in demo only**: Architecture supports multiple connectors but the `GET /api/v1/pods` aggregation may only reliably pull from the first configured K8s connector.
-- **No restart action**: Story mentions "restart pod" — delete is there but restart (rollout restart) is not a separate button.
-- **CPU/Memory may show stale data**: Values come from the Kubernetes provider; if metrics-server is not installed on the cluster, these columns will be empty or N/A.
+### Gaps / Risks *(unchanged)*
+- No dedicated "Restart" button — delete is present but rollout restart is separate
+- CPU/Memory empty if metrics-server not installed
+- Multi-cluster aggregation unverified with two real connectors
 
 ### Product Owner Recommendation
-- Add a dedicated "Restart" button (triggers `kubectl rollout restart`) distinct from delete
-- Add metrics-server availability check with a tooltip explaining when CPU/Memory is unavailable
-- Validate multi-cluster aggregation with two real connectors before claiming the feature complete
+- Add a "Restart" button (rollout restart) distinct from delete
+- Add metrics-server availability check with tooltip
+- Validate multi-cluster with two real connectors before claiming complete
 
 ---
 
 ## Chaos Engine Stories
 
-### Original Stories (4)
+### Acceptance Criteria vs Implementation *(unchanged)*
 
-| Story | Acceptance Criterion | Status | Evidence |
-|-------|---------------------|--------|----------|
-| US1: Node outage toggle | Toggle simulation via API or UI | ✅ | `POST /api/v1/chaos/trigger`; UI toggle buttons per scenario |
-| US2: Extensible scenarios | Registry pattern for new scenario types | ✅ | `chaos_manager.py` registry; UI renders all scenarios dynamically |
-| US3: Visual simulation indicator | Clear warning when Chaos Mode active | ✅ | Orange "⚠️ Simulation Mode" badge in header, pulsing; `state.isSimulationMode` flag |
-| US4: Rapid restoration | "Stop All Chaos" single action | ✅ | "Global Restoration" button visible when any simulation active |
+| Story | Criterion | Status | Evidence |
+|-------|-----------|--------|----------|
+| US1 | Toggle simulation via API or UI | ✅ | `POST /api/v1/chaos/trigger`; toggle buttons per scenario |
+| US2 | Registry pattern for new scenarios | ✅ | `chaos_manager.py` registry; UI renders all scenarios dynamically |
+| US3 | Visual simulation indicator | ✅ | Orange "⚠️ Simulation Mode" badge in header; `state.isSimulationMode` flag |
+| US4 | "Stop All Chaos" single action | ✅ | "Global Restoration" button |
 
-### What Was Built Beyond the Story
-- Manual Alert Injection section (3 buttons: Local, VM, K8s) — fires synthetic alerts through the full pipeline for end-to-end testing
-- Per-scenario active state with visual orange highlighting (border, shadow, badge)
-- Scenario abort mid-toggle updates all UI without page reload
-
-### Gaps / Risks
-- No chaos scenarios actually disrupt infrastructure — they only inject fake alerts. A real chaos test (e.g., network partition, pod kill) would require integration with a tool like Chaos Mesh or LitmusChaos.
-- Scenarios are hardcoded in `chaos_manager.py`. The extensibility story says "registry" — the structure exists but adding a new scenario requires code change, not a UI/config operation.
+### Gaps / Risks *(unchanged)*
+- Chaos scenarios only inject fake alerts — no real infrastructure disruption
+- New scenarios require code change, not a UI/config operation
 
 ### Product Owner Recommendation
-- This is acceptable for v1 (fire fake alerts = validate the pipeline). Document clearly that Chaos Engine v1 is "alert simulation", not "infrastructure disruption".
+- Document clearly: Chaos Engine v1 is "alert simulation", not "infrastructure disruption"
 - Open future story: **"Chaos Engine v2 — Real Infrastructure Disruption via LitmusChaos"**
-- Add an "Add Custom Scenario" form in the UI (name + alert payload template) to fulfil the extensibility story without code changes
 
 ---
 
-## Cross-Cutting Gaps (Not Covered by Any Story)
+## Cross-Cutting Gaps
 
-These are gaps discovered in the codebase that no story addresses but matter for the product:
-
-| Gap | Severity | Notes |
-|-----|----------|-------|
-| No persistent storage | 🔴 Critical | All incidents, reports, connectors lost on restart. Blocks production use. |
-| No authentication/authorization | 🔴 Critical | The UI and API have zero auth. Anyone with network access can fire alerts, delete pods, execute runbooks. |
-| No RBAC | 🟠 High | VPP mentions RBAC for runbooks — not started. |
-| In-memory only connector store | 🟠 High | `connectors.json` is the only persistence. If not committed, connectors are lost. |
-| No audit trail | 🟠 High | Who deleted a pod? Who approved a runbook? No record. |
-| Local LLM fallback | 🟡 Medium | VPP promises Llama 3 for privacy-sensitive customers — not started. |
-| Email notifications | 🟡 Medium | VPP mentions email — not started. |
-| Predictive anomaly detection | 🟡 Medium | VPP roadmap "Later" item — not started (expected). |
-| `prefers-reduced-motion` | 🟢 Low | Design system checklist item — animate-pulse and spin not gated on user preference. |
+| Gap | Severity | Status |
+|-----|----------|--------|
+| No persistent storage | 🔴 Critical | **Unchanged** — all incidents lost on restart |
+| No authentication/authorization | 🔴 Critical | **Unchanged** — zero auth on UI and API |
+| No RBAC | 🟠 High | **Unchanged** |
+| In-memory connector store | 🟠 High | **Unchanged** — `connectors.json` is the only persistence |
+| No audit trail | 🟠 High | **Unchanged** |
+| Local LLM fallback (Ollama) | 🟡 Medium | **Partially mitigated** — Groq (cloud-hosted Llama 3) added; true on-premise still missing |
+| Email notifications | 🟡 Medium | **Unchanged** |
+| Hardcoded "GPT-4o Vision" badge | 🟡 Medium | **New** — badge doesn't reflect actual configured LLM |
+| Predictive anomaly detection | 🟡 Medium | **Unchanged** — roadmap item, not started |
+| `prefers-reduced-motion` | 🟢 Low | **Unchanged** |
 
 ---
 
 ## Feature Scope Drift (Built Beyond Stories)
 
-The team built several features not described in any story artifact. These are positive additions but should be backfilled into the story artifacts to keep documentation current:
+| Feature | Location | Impact | Status |
+|---------|----------|--------|--------|
+| Noise Reduction (CEL rules + dedup + maintenance windows) | `bot/noise_reduction.py`, Rules page | High | No backfill story yet |
+| Multi-Infrastructure Connectors | Settings page, `bot/providers/` | High | No backfill story yet |
+| CEL Playground | Rules page | Medium | No backfill story yet |
+| Control Room (Bento Grid UI) | `frontend/src/views/ControlRoom.js` | High | No backfill story yet |
+| WebSocket real-time patching | `bot/ws_manager.py`, `main.js` | High | No backfill story yet |
+| Multi-provider LLM client | `bot/llm_client.py` | High | **New since last review** — no backfill story |
+| Keyword PromQL catalog | `bot/providers/prometheus_provider.py` | High | **New since last review** — no backfill story |
+| Archive delete + pagination + cache | `frontend/src/views/Archive.js` | Medium | **New since last review** |
+| Dashboard KPI cards + Activity Feed | Dashboard view | Medium | No backfill story yet |
 
-| Feature | Location | Impact |
-|---------|----------|--------|
-| Noise Reduction (CEL rules + dedup + maintenance windows) | `bot/noise_reduction.py`, Rules page | High — core product differentiator |
-| Multi-Infrastructure Connectors | Settings page, `bot/providers/` | High — supports K8s, Prometheus, Alertmanager, Local Machine |
-| CEL Playground | Rules page | Medium — developer tool for testing suppression logic |
-| Control Room (Bento Grid UI) | `frontend/src/views/ControlRoom.js` | High — most complex UI view, not described in any story |
-| WebSocket real-time patching | `bot/ws_manager.py`, `main.js` | High — core UX (no page refresh on updates) |
-| Dashboard KPI cards + Live Activity Feed | Dashboard view | Medium — standard observability dashboard features |
-| Dark mode (permanent) | `index.html`, `tailwind.config.js` | Low — UX/brand decision |
-
-**Recommendation:** Write backfill stories for Noise Reduction, Multi-Infra Connectors, and Control Room — these are the most valuable features and currently have no acceptance criteria to test against.
+**Recommendation:** The multi-provider LLM client and the PromQL catalog are high-value differentiators — write backfill stories and acceptance criteria for both.
 
 ---
 
@@ -322,32 +330,34 @@ The team built several features not described in any story artifact. These are p
 
 ### Immediate (Next Sprint)
 1. **Open story: "Implement basic incident persistence"** — SQLite or file-based. Without this, the product cannot be used in production.
-2. **Open story: "Add API authentication"** — Bearer token minimum; JWT for enterprise. The current open API is a security liability.
-3. **Open story: "Build Runbook Library v1"** — 3 real runbooks using existing Kubernetes provider. This closes the biggest promise-vs-reality gap.
+2. **Open story: "Add API authentication"** — Bearer token minimum. The open API is a security liability.
+3. **Open story: "Build Runbook Library v1"** — 3 real runbooks. Closes the biggest promise-vs-reality gap.
 
 ### Short Term (Next 2 Sprints)
-4. **Open story: "MS Teams Graph API threading"** — Closes the US02 gap; critical for on-call UX.
-5. **Backfill story: "Noise Reduction Engine"** — Document and formalize AC for CEL rules, dedup, maintenance windows.
-6. **Backfill story: "Multi-Infrastructure Connector Registry"** — Document AC for connector add/delete/status.
-7. **Open story: "Diagnostic dry-run on connector save"** — Validate K8s/Prometheus connectivity before saving.
+4. **Open story: "MS Teams Graph API threading"** — Critical for on-call UX.
+5. **Fix: "GPT-4o Vision badge"** — Replace hardcoded text with `active_provider_info()` — 1-line fix.
+6. **Backfill story: "Multi-provider LLM Engine"** — Document and formalize AC for provider selection, model override, key validation, unconfigured UX.
+7. **Backfill story: "Keyword-based Diagnostic Targeting"** — Document AC for PromQL catalog, label injection, fallback behavior.
+8. **Backfill story: "Noise Reduction Engine"** — CEL rules, dedup, maintenance windows.
+9. **Open story: "Diagnostic dry-run on connector save"** — Validate K8s/Prometheus connectivity before saving.
 
 ### Medium Term (Roadmap)
-8. **Open story: "Local LLM support (Ollama/Llama 3)"** — VPP commitment for privacy-sensitive enterprise customers.
-9. **Open story: "Chaos Engine v2 — Real Infrastructure Disruption"** — LitmusChaos integration.
-10. **Open story: "Audit Log"** — Who did what, when. Required for enterprise compliance.
+10. **Open story: "Local LLM support (Ollama)"** — VPP commitment for data-residency customers. Groq is cloud; not a substitute.
+11. **Open story: "Chaos Engine v2 — Real Infrastructure Disruption"** — LitmusChaos integration.
+12. **Open story: "Audit Log"** — Who did what, when. Enterprise compliance requirement.
 
 ---
 
 ## Alignment Score by Story
 
-| Story | Score | Rationale |
-|-------|-------|-----------|
-| US01 — Incident Detection | 9/10 | All ACs met; only gap is formal audit log |
-| US02 — Teams Notification | 7/10 | Cards work well; Graph API threading missing; no retry |
-| US03 — Automated Diagnostics | 8/10 | Multi-provider fallback exceeds story; RBAC manifest missing |
-| US04 — AI RCA | 8/10 | Strong implementation; local LLM not built; no source citations |
-| US05 — Runbook Automation | 4/10 | Suggestions only; zero actual execution; no runbook library |
-| US06 — Post-Mortem Report | 7/10 | Great UI; no persistence; no email |
-| US07 — Pod Management | 9/10 | All ACs met; multi-cluster limited in demo |
-| Chaos Engine | 9/10 | All 4 stories met; real infrastructure disruption is future scope |
-| **Overall** | **7.6/10** | Core pipeline solid; persistence and runbook execution are critical gaps |
+| Story | Previous Score | Current Score | Change |
+|-------|---------------|---------------|--------|
+| US01 — Incident Detection | 9/10 | 9/10 | → |
+| US02 — Teams Notification | 7/10 | 7/10 | → |
+| US03 — Automated Diagnostics | 8/10 | 9/10 | ↑ Keyword PromQL, graceful telemetry |
+| US04 — AI RCA | 8/10 | 9/10 | ↑ Multi-provider LLM built |
+| US05 — Runbook Automation | 4/10 | 4/10 | → Still a stub; approve button removed |
+| US06 — Post-Mortem Report | 7/10 | 7/10 | → Archive UX much better; persistence still missing |
+| US07 — Pod Management | 9/10 | 9/10 | → |
+| Chaos Engine | 9/10 | 9/10 | → |
+| **Overall** | **7.5/10** | **8.1/10** | **↑ +0.6** |
