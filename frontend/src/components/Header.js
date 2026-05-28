@@ -158,6 +158,8 @@ function getViewTitle(view) {
         case 'chaos': return 'Chaos Control';
         case 'pods': return 'Resource Registry';
         case 'settings': return 'Settings';
+        case 'runbooks': return 'Runbooks';
+        case 'rules': return 'Rules & Suppression';
         default: return 'Global Dashboard';
     }
 }

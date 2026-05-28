@@ -17,6 +17,8 @@ from bot.diagnostics import get_cluster_health_metrics, list_all_pods, get_pod_y
 from bot.chaos_manager import chaos_manager
 from bot.noise_reduction import noise_reducer
 from bot.models import FilterRule, MaintenanceWindow
+from bot.confluence_client import list_runbooks, search_runbook, get_runbook_page, ping_confluence, is_configured as confluence_configured
+from bot.llm_client import call_llm, is_llm_configured
 
 logger = logging.getLogger("sre_copilot")
 router = APIRouter()
@@ -202,6 +204,15 @@ async def get_incident(incident_id: str):
     if not incident.runbook_executed:
         recommendation = await get_runbook_recommendation(incident.alert_name, incident.rca_report or "")
 
+    import os as _os
+    _provider = _os.getenv("LLM_PROVIDER", "openai")
+    _model    = _os.getenv("LLM_MODEL", "")
+    _defaults = {
+        "openai": "gpt-4o", "anthropic": "claude-sonnet-4-6",
+        "gemini": "gemini-2.0-flash", "groq": "llama-3.3-70b-versatile",
+    }
+    llm_display = _model or _defaults.get(_provider, _provider)
+
     return {
         "incident_id": incident.incident_id,
         "alert_name": incident.alert_name,
@@ -227,6 +238,7 @@ async def get_incident(incident_id: str):
         "recommended_runbook": recommendation,
         "events": events,
         "report": report,
+        "llm_display": llm_display,
     }
 
 @router.delete("/incidents/{incident_id}")
@@ -363,16 +375,133 @@ async def get_settings():
     import os
     return {
         "env": {
-            "LLM_PROVIDER":      os.getenv("LLM_PROVIDER", "openai"),
-            "LLM_MODEL":         os.getenv("LLM_MODEL", ""),
-            "OPENAI_API_KEY":    os.getenv("OPENAI_API_KEY", ""),
-            "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", ""),
-            "GEMINI_API_KEY":    os.getenv("GEMINI_API_KEY", ""),
-            "GROQ_API_KEY":      os.getenv("GROQ_API_KEY", ""),
-            "TEAMS_WEBHOOK_URL": os.getenv("TEAMS_WEBHOOK_URL", ""),
+            "LLM_PROVIDER":             os.getenv("LLM_PROVIDER", "openai"),
+            "LLM_MODEL":                os.getenv("LLM_MODEL", ""),
+            "OPENAI_API_KEY":           os.getenv("OPENAI_API_KEY", ""),
+            "ANTHROPIC_API_KEY":        os.getenv("ANTHROPIC_API_KEY", ""),
+            "GEMINI_API_KEY":           os.getenv("GEMINI_API_KEY", ""),
+            "GROQ_API_KEY":             os.getenv("GROQ_API_KEY", ""),
+            "TEAMS_WEBHOOK_URL":        os.getenv("TEAMS_WEBHOOK_URL", ""),
+            "CONFLUENCE_TYPE":          os.getenv("CONFLUENCE_TYPE", "cloud"),
+            "CONFLUENCE_URL":           os.getenv("CONFLUENCE_URL", ""),
+            "CONFLUENCE_EMAIL":         os.getenv("CONFLUENCE_EMAIL", ""),
+            "CONFLUENCE_API_TOKEN":     os.getenv("CONFLUENCE_API_TOKEN", ""),
+            "CONFLUENCE_ROOT_PAGE_URL": os.getenv("CONFLUENCE_ROOT_PAGE_URL", ""),
         },
         "connectors": await registry.list_providers()
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/runbooks  — list all runbook pages from Confluence
+# ---------------------------------------------------------------------------
+
+@router.get("/runbooks")
+async def get_runbooks():
+    """Fetch all runbook pages under the configured Confluence root page."""
+    if not confluence_configured():
+        return {"configured": False, "runbooks": []}
+    runbooks = await list_runbooks()
+    return {"configured": True, "runbooks": runbooks}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/runbooks/suggest  — runbook-grounded LLM suggestion for incident
+# ---------------------------------------------------------------------------
+
+@router.get("/runbooks/suggest")
+async def get_runbook_suggestion(incident_id: str):
+    """Search Confluence for a matching runbook and generate a suggested fix via LLM."""
+    if not confluence_configured():
+        return {"configured": False, "found": False, "suggestion": None}
+
+    incident = timeline_manager.incidents.get(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
+
+    runbook = await search_runbook(incident.alert_name)
+    if not runbook:
+        return {
+            "configured": True,
+            "found": False,
+            "alert_name": incident.alert_name,
+            "suggestion": None,
+            "runbook_title": None,
+            "runbook_url": None,
+        }
+
+    suggestion = None
+    if is_llm_configured():
+        try:
+            system_prompt = (
+                "You are an expert SRE assistant. Given a runbook and an active incident, "
+                "provide a concise, actionable suggested fix for the on-call engineer. "
+                "Be specific. Maximum 5 bullet points. Plain text only, no markdown headers."
+            )
+            user_prompt = (
+                f"INCIDENT\n"
+                f"Alert: {incident.alert_name}\n"
+                f"Severity: {incident.severity}\n"
+                f"Context: {incident.context}\n"
+                f"AI RCA: {incident.rca_report or 'Not yet available'}\n\n"
+                f"RUNBOOK: {runbook['title']}\n"
+                f"{runbook['content']}\n\n"
+                f"Based on the runbook above, what should the on-call engineer do right now?"
+            )
+            suggestion = await call_llm(system_prompt, user_prompt)
+        except Exception as e:
+            logger.error("Runbook suggestion LLM call failed: %s", e)
+            suggestion = runbook["content"][:600]
+
+    return {
+        "configured": True,
+        "found": True,
+        "alert_name": incident.alert_name,
+        "runbook_id": runbook["id"],
+        "runbook_title": runbook["title"],
+        "runbook_url": runbook["url"],
+        "suggestion": suggestion or runbook["content"][:600],
+    }
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/runbooks/ping  — test Confluence credentials before saving
+# ---------------------------------------------------------------------------
+
+class ConfluencePingPayload(BaseModel):
+    confluence_url: str = ""
+    confluence_email: str = ""
+    confluence_api_token: str = ""
+    confluence_root_page_url: str = ""
+    confluence_type: str = "cloud"
+
+@router.post("/runbooks/ping")
+async def test_confluence_connection(payload: ConfluencePingPayload):
+    """Test Confluence connectivity with the provided (unsaved) credentials."""
+    result = await ping_confluence(
+        url=payload.confluence_url,
+        email=payload.confluence_email,
+        token=payload.confluence_api_token,
+        root_url=payload.confluence_root_page_url,
+        conf_type=payload.confluence_type,
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/runbooks/{page_id}  — full content for a single runbook page
+# NOTE: must be registered AFTER /runbooks/suggest to avoid path collision
+# ---------------------------------------------------------------------------
+
+@router.get("/runbooks/{page_id}")
+async def get_runbook_page_content(page_id: str):
+    """Fetch full HTML content for a single Confluence runbook page."""
+    if not confluence_configured():
+        raise HTTPException(status_code=503, detail="Confluence not configured")
+    page = await get_runbook_page(page_id)
+    if not page:
+        raise HTTPException(status_code=404, detail=f"Runbook page {page_id} not found")
+    return page
+
 
 @router.post("/settings/env")
 async def update_env_settings(payload: dict):

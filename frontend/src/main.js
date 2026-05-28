@@ -18,6 +18,7 @@ import { renderRulesView } from './views/Rules';
 import { renderChaosView } from './views/Chaos';
 import { renderPodsView } from './views/Pods';
 import { renderSettingsView } from './views/Settings';
+import { renderRunbooksView } from './views/Runbooks';
 
 /**
  * INITIALIZATION
@@ -177,6 +178,9 @@ function renderView(view) {
             break;
         case 'settings':
             renderSettingsView(container);
+            break;
+        case 'runbooks':
+            renderRunbooksView(container);
             break;
         default:
             renderDashboardView(container);
