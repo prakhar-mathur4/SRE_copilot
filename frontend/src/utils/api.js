@@ -199,3 +199,29 @@ export async function deleteConnector(id) {
         method: 'DELETE'
     });
 }
+
+// Confluence Runbooks
+export async function fetchRunbooks() {
+    const res = await fetch(`${API_BASE}/runbooks`);
+    return await res.json();
+}
+
+export async function fetchRunbookSuggestion(incidentId) {
+    const res = await fetch(`${API_BASE}/runbooks/suggest?incident_id=${encodeURIComponent(incidentId)}`);
+    return await res.json();
+}
+
+export async function fetchRunbookPage(pageId) {
+    const res = await fetch(`${API_BASE}/runbooks/${encodeURIComponent(pageId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+}
+
+export async function pingConfluence(payload) {
+    const res = await fetch(`${API_BASE}/runbooks/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    return await res.json();
+}

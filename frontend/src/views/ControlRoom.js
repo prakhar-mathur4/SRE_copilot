@@ -4,6 +4,7 @@
 import { state, updateState } from '../utils/state';
 import { API_BASE } from '../utils/api';
 import { marked } from 'marked';
+import { openRunbookModal } from '../utils/runbookModal';
 
 export async function renderControlRoomView(container) {
     if (!state.selectedIncidentId) {
@@ -42,13 +43,22 @@ export async function renderControlRoomView(container) {
                             Started: ${new Date(inc.alert_starts_at && !inc.alert_starts_at.startsWith('0001') ? inc.alert_starts_at : inc.start_time).toLocaleString()}
                         </div>
                         
-                        <div class="mt-4 pt-4 border-t border-white/5">
-                            <div class="text-[9px] font-bold text-muted uppercase mb-2">Notification Status</div>
-                            <div class="flex items-center gap-2 text-[10px] text-accent-success font-bold">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                Microsoft Teams Sent
+                        <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
+                            <div class="text-[9px] font-bold text-muted uppercase mb-1">Context</div>
+                            <div class="text-[10px] font-mono text-text-light dark:text-text-dark break-all">
+                                ${inc.context || inc.labels?.namespace || inc.labels?.cluster || '—'}
                             </div>
-                            <a href="#" class="text-[10px] text-accent-primary hover:underline mt-1 block">View Teams Thread →</a>
+                            ${(inc.dedup_count > 1) ? `
+                            <div class="flex items-center gap-1.5 mt-1">
+                                <span class="text-[9px] font-bold text-muted uppercase">Dedup</span>
+                                <span class="px-1.5 py-0.5 rounded bg-alert-orange/10 text-alert-orange text-[9px] font-bold">
+                                    ×${inc.dedup_count} firings
+                                </span>
+                            </div>` : ''}
+                            <div class="flex items-center gap-1.5 mt-1">
+                                <span class="text-[9px] font-bold text-muted uppercase">Events</span>
+                                <span class="text-[10px] font-mono text-muted">${inc.events?.length ?? inc.event_count ?? 0} in timeline</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -60,8 +70,12 @@ export async function renderControlRoomView(container) {
                             <button id="view-ai-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-accent-primary">AI RCA</button>
                             <button id="view-raw-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all">Raw Telemetry</button>
                             <button id="view-payload-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all">Alert Payload</button>
+                            <button id="view-runbook-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                Runbook Fix
+                            </button>
                         </div>
-                        <span class="px-2 py-0.5 bg-accent-primary/10 text-accent-primary text-[9px] font-bold rounded">GPT-4o Vision</span>
+                        <span class="px-2 py-0.5 bg-accent-primary/10 text-accent-primary text-[9px] font-bold rounded">${inc.llm_display || 'AI Analysis'}</span>
                     </div>
 
                     <!-- AI Content -->
@@ -77,6 +91,14 @@ export async function renderControlRoomView(container) {
                     <!-- Raw Content (Hidden by default) -->
                     <div id="raw-content" class="hidden flex-grow overflow-auto terminal">
                         <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (!inc.telemetry_available ? 'Not enough information to collect telemetry.\nCheck the AI recommendation or perform a manual investigation.' : 'No raw telemetry collected for this incident.')}</pre>
+                    </div>
+
+                    <!-- Runbook Fix (Hidden by default, lazy-loaded) -->
+                    <div id="runbook-content" class="hidden flex-grow overflow-auto">
+                        <div id="runbook-inner" class="flex items-center justify-center h-full gap-2 text-muted text-sm">
+                            <div class="spinner" style="width:14px;height:14px;border-color:rgba(255,255,255,0.1);border-top-color:currentColor"></div>
+                            <span>Searching Confluence…</span>
+                        </div>
                     </div>
 
                     <!-- Alert Payload (Hidden by default) -->
@@ -189,12 +211,15 @@ export async function renderControlRoomView(container) {
         const aiBtn      = container.querySelector('#view-ai-btn');
         const rawBtn     = container.querySelector('#view-raw-btn');
         const payloadBtn = container.querySelector('#view-payload-btn');
+        const runbookBtn = container.querySelector('#view-runbook-btn');
         const aiContent      = container.querySelector('#ai-content');
         const rawContent     = container.querySelector('#raw-content');
         const payloadContent = container.querySelector('#payload-content');
+        const runbookContent = container.querySelector('#runbook-content');
+        const runbookInner   = container.querySelector('#runbook-inner');
 
-        const allBtns     = [aiBtn, rawBtn, payloadBtn];
-        const allContents = [aiContent, rawContent, payloadContent];
+        const allBtns     = [aiBtn, rawBtn, payloadBtn, runbookBtn];
+        const allContents = [aiContent, rawContent, payloadContent, runbookContent];
 
         function activateTab(btn, content) {
             allBtns.forEach(b => { b.classList.remove('border-accent-primary'); b.classList.add('border-transparent', 'text-muted'); });
@@ -207,6 +232,86 @@ export async function renderControlRoomView(container) {
         aiBtn.onclick      = () => activateTab(aiBtn, aiContent);
         rawBtn.onclick     = () => activateTab(rawBtn, rawContent);
         payloadBtn.onclick = () => activateTab(payloadBtn, payloadContent);
+
+        // Runbook tab — lazy fetch on first click
+        let runbookLoaded = false;
+        runbookBtn.onclick = async () => {
+            activateTab(runbookBtn, runbookContent);
+            if (runbookLoaded) return;
+            runbookLoaded = true;
+            try {
+                const res  = await fetch(`${API_BASE}/runbooks/suggest?incident_id=${encodeURIComponent(inc.incident_id)}`);
+                const data = await res.json();
+
+                if (!data.configured) {
+                    runbookInner.innerHTML = `
+                        <div class="flex flex-col items-center gap-3 text-center p-6">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <p class="text-sm text-muted">Confluence not configured.</p>
+                            <p class="text-[11px] text-muted">Add your Confluence details in <strong>Settings → Confluence Runbooks</strong>.</p>
+                        </div>`;
+                    return;
+                }
+
+                if (!data.found) {
+                    runbookInner.innerHTML = `
+                        <div class="flex flex-col items-center gap-3 text-center p-6">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <p class="text-sm text-muted">No runbook found for <span class="font-bold text-text-light dark:text-text-dark">${data.alert_name}</span>.</p>
+                            <p class="text-[11px] text-muted">Consider creating a runbook in Confluence under the configured root page.</p>
+                        </div>`;
+                    return;
+                }
+
+                runbookInner.innerHTML = `
+                    <div class="flex flex-col gap-3 p-4 h-full">
+                        <!-- Runbook header -->
+                        <div class="flex items-center justify-between flex-shrink-0 gap-3 flex-wrap">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="p-1.5 rounded bg-blue-500/10 text-blue-400 flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                </div>
+                                <span class="text-[11px] font-bold text-blue-400 uppercase tracking-widest truncate">${data.runbook_title}</span>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                ${data.runbook_id ? `
+                                <button id="rb-view-full-btn"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                                           bg-blue-500/10 hover:bg-blue-500/20 text-blue-400
+                                           text-[10px] font-bold uppercase tracking-widest transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                    View Full Runbook
+                                </button>` : ''}
+                                ${data.runbook_url ? `
+                                <a href="${data.runbook_url}" target="_blank" rel="noopener noreferrer"
+                                    class="flex items-center gap-1 text-[9px] font-bold text-muted
+                                           hover:text-primary-light dark:hover:text-primary-dark
+                                           uppercase tracking-widest transition-colors">
+                                    Confluence
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                </a>` : ''}
+                            </div>
+                        </div>
+                        <!-- AI suggestion -->
+                        <div class="flex-grow overflow-auto bg-black/20 rounded-xl border border-white/5 p-4">
+                            <p class="text-[12px] leading-relaxed whitespace-pre-wrap">${data.suggestion}</p>
+                        </div>
+                        <p class="text-[10px] text-muted italic flex-shrink-0">
+                            AI-grounded suggestion · all actions must be performed manually by the on-call engineer
+                        </p>
+                    </div>`;
+                if (data.runbook_id) {
+                    runbookInner.querySelector('#rb-view-full-btn').onclick = () =>
+                        openRunbookModal(data.runbook_id, data.runbook_title, data.runbook_url);
+                }
+            } catch (e) {
+                runbookInner.innerHTML = `<div class="text-alert-red text-sm p-4">Failed to fetch runbook suggestion: ${e.message}</div>`;
+            }
+        };
 
 
 } catch (e) {
