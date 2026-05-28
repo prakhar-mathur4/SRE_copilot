@@ -7,7 +7,7 @@
 // Route format:  #/<view>  or  #/control/<incidentId>
 // ---------------------------------------------------------------------------
 
-const VALID_VIEWS = ['dashboard', 'active', 'control', 'archive', 'rules', 'chaos', 'pods', 'settings', 'runbooks'];
+const VALID_VIEWS = ['dashboard', 'active', 'control', 'archive', 'rules', 'chaos', 'pods', 'settings', 'runbooks', 'ssl'];
 
 function parseHash() {
     const hash = window.location.hash.replace(/^#\/?/, ''); // strip leading #/ or #

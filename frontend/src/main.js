@@ -19,6 +19,7 @@ import { renderChaosView } from './views/Chaos';
 import { renderPodsView } from './views/Pods';
 import { renderSettingsView } from './views/Settings';
 import { renderRunbooksView } from './views/Runbooks';
+import { renderSSLView } from './views/SSL';
 
 /**
  * INITIALIZATION
@@ -181,6 +182,9 @@ function renderView(view) {
             break;
         case 'runbooks':
             renderRunbooksView(container);
+            break;
+        case 'ssl':
+            renderSSLView(container);
             break;
         default:
             renderDashboardView(container);

@@ -217,6 +217,30 @@ export async function fetchRunbookPage(pageId) {
     return await res.json();
 }
 
+// SSL Certificate Monitor
+export async function fetchSSLDomains() {
+    const res = await fetch(`${API_BASE}/ssl/domains`);
+    return await res.json();
+}
+
+export async function addSSLDomain(domain, port = 443) {
+    return fetch(`${API_BASE}/ssl/domains`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, port }),
+    });
+}
+
+export async function deleteSSLDomain(domain, port = 443) {
+    return fetch(`${API_BASE}/ssl/domains/${encodeURIComponent(domain)}?port=${port}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function checkAllSSL() {
+    return fetch(`${API_BASE}/ssl/check`, { method: 'POST' });
+}
+
 export async function pingConfluence(payload) {
     const res = await fetch(`${API_BASE}/runbooks/ping`, {
         method: 'POST',

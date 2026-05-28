@@ -18,6 +18,10 @@ from bot.chaos_manager import chaos_manager
 from bot.noise_reduction import noise_reducer
 from bot.models import FilterRule, MaintenanceWindow
 from bot.confluence_client import list_runbooks, search_runbook, get_runbook_page, ping_confluence, is_configured as confluence_configured
+from bot.ssl_checker import (
+    load_domains, add_domain, remove_domain,
+    check_all_domains, check_domain, get_cached_results,
+)
 from bot.llm_client import call_llm, is_llm_configured
 
 logger = logging.getLogger("sre_copilot")
@@ -562,9 +566,60 @@ async def delete_connector(connector_id: str):
     """Remove a connector from the registry."""
     configs = await registry.list_providers()
     new_configs = [c for c in configs if c["id"] != connector_id]
-    
+
     with open(registry.config_path, "w") as f:
         json.dump(new_configs, f, indent=2)
-        
+
     registry.load_connectors()
     return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# SSL Certificate Monitor
+# ---------------------------------------------------------------------------
+
+class SSLDomainRequest(BaseModel):
+    domain: str
+    port: int = 443
+
+
+@router.get("/ssl/domains")
+async def list_ssl_domains():
+    """Return all monitored domains with their last cached SSL status."""
+    return {"domains": get_cached_results()}
+
+
+@router.post("/ssl/domains")
+async def add_ssl_domain(payload: SSLDomainRequest):
+    """Add a domain to the SSL monitoring list (appended to ssl_domains.json)."""
+    domain = payload.domain.strip().lower()
+    port   = payload.port
+    # Support "domain:port" format passed in the domain field
+    if ":" in domain:
+        last_colon = domain.rfind(":")
+        potential_port = domain[last_colon + 1:]
+        if potential_port.isdigit():
+            port   = int(potential_port)
+            domain = domain[:last_colon]
+    domains = add_domain(domain, port)
+    return {"success": True, "count": len(domains)}
+
+
+@router.delete("/ssl/domains/{domain:path}")
+async def remove_ssl_domain(domain: str, port: int = 443):
+    """Remove a domain from the SSL monitoring list."""
+    domains = remove_domain(domain, port)
+    return {"success": True, "count": len(domains)}
+
+
+@router.post("/ssl/check")
+async def check_ssl_all():
+    """Trigger a fresh parallel SSL check for all monitored domains."""
+    results = await check_all_domains()
+    return {"results": results, "checked": len(results)}
+
+
+@router.get("/ssl/check/{domain}")
+async def check_ssl_single(domain: str, port: int = 443):
+    """Check SSL certificate for a single domain."""
+    return await check_domain(domain, port)

@@ -1,0 +1,22 @@
+[
+  {
+    "domain": "github.com",
+    "port": 443,
+    "added_at": "2026-05-28T10:00:00+00:00"
+  },
+  {
+    "domain": "google.com",
+    "port": 443,
+    "added_at": "2026-05-28T10:00:00+00:00"
+  },
+  {
+    "domain": "your-api.company.com",
+    "port": 443,
+    "added_at": "2026-05-28T10:00:00+00:00"
+  },
+  {
+    "domain": "internal.service.company.com",
+    "port": 8443,
+    "added_at": "2026-05-28T10:00:00+00:00"
+  }
+]

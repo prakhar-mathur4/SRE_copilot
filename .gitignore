@@ -22,6 +22,10 @@ dist/
 # Copy connectors.example.json to connectors.json and fill in your values.
 connectors.json
 
+# SSL monitor domain list — contains internal domain names.
+# Copy ssl_domains.example.json to ssl_domains.json and fill in your domains.
+ssl_domains.json
+
 # Runtime logs and PID files
 *.log
 .backend.pid

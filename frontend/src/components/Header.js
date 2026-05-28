@@ -160,6 +160,7 @@ function getViewTitle(view) {
         case 'settings': return 'Settings';
         case 'runbooks': return 'Runbooks';
         case 'rules': return 'Rules & Suppression';
+        case 'ssl':   return 'SSL Monitor';
         default: return 'Global Dashboard';
     }
 }
