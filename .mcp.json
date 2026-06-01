@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "/Users/prakharmathur/.local/pipx/venvs/code-review-graph/bin/python",
+      "args": [
+        "-m",
+        "code_review_graph",
+        "serve"
+      ],
+      "cwd": "/Users/prakharmathur/Desktop/SRE_copilot",
+      "type": "stdio"
+    }
+  }
+}
