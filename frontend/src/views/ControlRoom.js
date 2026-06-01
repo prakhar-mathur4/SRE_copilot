@@ -1,5 +1,5 @@
 /**
- * INCIDENT CONTROL ROOM (Bento Grid Upgrade)
+ * INCIDENT CONTROL ROOM
  */
 import { state, updateState } from '../utils/state';
 import { API_BASE } from '../utils/api';
@@ -12,7 +12,7 @@ export async function renderControlRoomView(container) {
         return;
     }
 
-    container.innerHTML = '<div class="p-20 text-center animate-pulse font-mono text-primary-light">INITIATING CONTROL LINK...</div>';
+    container.innerHTML = '<div class="p-20 text-center animate-pulse font-mono" style="color:#666666;">Initializing control link...</div>';
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -24,112 +24,115 @@ export async function renderControlRoomView(container) {
 
         container.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-12 grid-rows-6 gap-4 h-full min-h-0">
-                <!-- 1. Incident Info (Bento Unit) -->
-                <div class="md:col-span-3 row-span-2 bento-card border-l-4 border-l-primary-light dark:border-l-primary-dark">
-                    <div class="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">INCIDENT ID</div>
+
+                <!-- 1. Incident Info -->
+                <div class="md:col-span-3 row-span-2 bento-card border-l-4 border-l-primary-600">
+                    <div class="text-xs font-bold text-muted uppercase tracking-widest mb-1">Incident ID</div>
                     <div class="flex items-center gap-2 mb-4">
-                        <span class="font-mono text-sm font-bold text-primary-light dark:text-primary-dark" title="${inc.incident_id}">${inc.incident_id.slice(0, 16)}…</span>
-                        <button id="copy-id-btn" title="Copy full ID" class="p-1 rounded hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark text-muted hover:text-text-light dark:hover:text-text-dark transition-colors">
+                        <span class="font-mono text-sm font-bold text-primary-600" title="${inc.incident_id}">${inc.incident_id.slice(0, 16)}…</span>
+                        <button id="copy-id-btn" title="Copy full ID" class="p-1 rounded hover:bg-neutral-100 text-muted hover:text-neutral-1000 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                         </button>
                     </div>
-                    
+
                     <div class="flex flex-col gap-4">
                         <div>
                             <span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'} mb-2">${inc.severity}</span>
-                            <h2 class="text-xl font-bold leading-tight">${inc.alert_name}</h2>
+                            <h2 class="text-base font-bold leading-tight" style="color:#121212;">${inc.alert_name}</h2>
                         </div>
                         <div class="text-xs text-muted">
                             Started: ${new Date(inc.alert_starts_at && !inc.alert_starts_at.startsWith('0001') ? inc.alert_starts_at : inc.start_time).toLocaleString()}
                         </div>
-                        
-                        <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
-                            <div class="text-[9px] font-bold text-muted uppercase mb-1">Context</div>
-                            <div class="text-[10px] font-mono text-text-light dark:text-text-dark break-all">
+
+                        <div class="mt-4 pt-4 border-t border-neutral-200 flex flex-col gap-2">
+                            <div class="text-xs font-bold text-muted mb-1">Context</div>
+                            <div class="text-xs font-mono" style="color:#121212; word-break:break-all;">
                                 ${inc.context || inc.labels?.namespace || inc.labels?.cluster || '—'}
                             </div>
                             ${(inc.dedup_count > 1) ? `
                             <div class="flex items-center gap-1.5 mt-1">
-                                <span class="text-[9px] font-bold text-muted uppercase">Dedup</span>
-                                <span class="px-1.5 py-0.5 rounded bg-alert-orange/10 text-alert-orange text-[9px] font-bold">
+                                <span class="text-xs font-bold text-muted">Dedup</span>
+                                <span class="px-2 py-0.5 rounded text-xs font-bold" style="background:#FFF3DE; color:#A36701; border:1px solid #F7D8A3;">
                                     ×${inc.dedup_count} firings
                                 </span>
                             </div>` : ''}
                             <div class="flex items-center gap-1.5 mt-1">
-                                <span class="text-[9px] font-bold text-muted uppercase">Events</span>
-                                <span class="text-[10px] font-mono text-muted">${inc.events?.length ?? inc.event_count ?? 0} in timeline</span>
+                                <span class="text-xs font-bold text-muted">Events</span>
+                                <span class="text-xs font-mono text-muted">${inc.events?.length ?? inc.event_count ?? 0} in timeline</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. Analysis & Telemetry (Bento Unit) -->
+                <!-- 2. Analysis & Telemetry -->
                 <div class="md:col-span-6 row-span-4 bento-card overflow-hidden flex flex-col">
                     <div class="flex items-center justify-between mb-4 flex-shrink-0">
-                        <div class="flex gap-4">
-                            <button id="view-ai-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-accent-primary">AI RCA</button>
-                            <button id="view-raw-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all">Raw Telemetry</button>
-                            <button id="view-payload-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all">Alert Payload</button>
-                            <button id="view-runbook-btn" class="text-[10px] font-bold uppercase tracking-widest pb-1 border-b-2 border-transparent text-muted hover:text-text-primary transition-all flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <!-- IQM Horizontal Tabs — Medium: h-[34px], 2px bottom border, Primary-600 active -->
+                        <div class="flex gap-1">
+                            <button id="view-ai-btn" class="px-3 text-xs font-bold border-b-2 border-primary-600 text-primary-600 transition-colors" style="height:34px;">AI RCA</button>
+                            <button id="view-raw-btn" class="px-3 text-xs font-bold border-b-2 border-transparent text-muted hover:text-neutral-1000 transition-colors" style="height:34px;">Raw Telemetry</button>
+                            <button id="view-payload-btn" class="px-3 text-xs font-bold border-b-2 border-transparent text-muted hover:text-neutral-1000 transition-colors" style="height:34px;">Alert Payload</button>
+                            <button id="view-runbook-btn" class="px-3 text-xs font-bold border-b-2 border-transparent text-muted hover:text-neutral-1000 transition-colors flex items-center gap-1.5" style="height:34px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                 Runbook Fix
                             </button>
                         </div>
-                        <span class="px-2 py-0.5 bg-accent-primary/10 text-accent-primary text-[9px] font-bold rounded">${inc.llm_display || 'AI Analysis'}</span>
+                        <span class="px-2 py-0.5 rounded text-xs font-bold" style="background:#F2F6FF; color:#134AC1;">${inc.llm_display || 'AI Analysis'}</span>
                     </div>
 
                     <!-- AI Content -->
-                    <div id="ai-content" class="flex-grow overflow-auto prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-white/5">
+                    <div id="ai-content" class="flex-grow overflow-auto prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-neutral-100 prose-pre:border prose-pre:border-neutral-200">
                         ${inc.rca_report
                             ? ((!inc.telemetry_available)
-                                ? `<div class="mb-3 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-400 not-prose">Not enough information to collect telemetry — check AI recommendation below or perform a manual investigation.</div>` + marked.parse(inc.rca_report)
+                                ? `<div class="mb-3 p-3 rounded text-xs not-prose" style="background:#FFF3DE; border:1px solid #F7D8A3; color:#A36701;">Not enough information to collect telemetry — check AI recommendation below or perform a manual investigation.</div>` + marked.parse(inc.rca_report)
                                 : marked.parse(inc.rca_report))
-                            : '<div class="text-muted italic p-10 text-center">Synthesizing cluster telemetry...</div>'
+                            : '<div class="text-muted italic p-10 text-center text-sm">Synthesizing cluster telemetry...</div>'
                         }
                     </div>
 
-                    <!-- Raw Content (Hidden by default) -->
+                    <!-- Raw Telemetry (hidden by default) -->
                     <div id="raw-content" class="hidden flex-grow overflow-auto terminal">
-                        <pre class="whitespace-pre-wrap p-4 text-[10px] text-cyan-200/80">${inc.raw_diagnostics || (!inc.telemetry_available ? 'Not enough information to collect telemetry.\nCheck the AI recommendation or perform a manual investigation.' : 'No raw telemetry collected for this incident.')}</pre>
+                        <!-- #3 FIX: inline color for terminal text — terminal is an intentional dark-surface exception -->
+                        <pre class="whitespace-pre-wrap p-4 text-xs" style="color:#a5f3fc;">${inc.raw_diagnostics || (!inc.telemetry_available ? 'Not enough information to collect telemetry.\nCheck the AI recommendation or perform a manual investigation.' : 'No raw telemetry collected for this incident.')}</pre>
                     </div>
 
-                    <!-- Runbook Fix (Hidden by default, lazy-loaded) -->
+                    <!-- Runbook Fix (hidden by default, lazy-loaded) -->
                     <div id="runbook-content" class="hidden flex-grow overflow-auto">
                         <div id="runbook-inner" class="flex items-center justify-center h-full gap-2 text-muted text-sm">
-                            <div class="spinner" style="width:14px;height:14px;border-color:rgba(255,255,255,0.1);border-top-color:currentColor"></div>
+                            <div style="width:14px; height:14px; border-radius:50%; border:2px solid #E6E6E6; border-top-color:#134AC1;" class="animate-spin flex-shrink-0"></div>
                             <span>Searching Confluence…</span>
                         </div>
                     </div>
 
-                    <!-- Alert Payload (Hidden by default) -->
+                    <!-- Alert Payload (hidden by default) -->
                     <div id="payload-content" class="hidden flex-grow overflow-auto p-1">
                         ${(() => {
                             const labels      = inc.labels      || {};
                             const annotations = inc.annotations || {};
                             const renderKV = (obj) => {
                                 const entries = Object.entries(obj);
-                                if (entries.length === 0) return '<span class="text-muted/50 italic text-xs">none</span>';
+                                if (entries.length === 0) return '<span class="text-muted italic text-xs">none</span>';
                                 return entries.map(([k, v]) => `
-                                    <div class="flex gap-3 py-1.5 border-b border-surface-hover-light/50 dark:border-surface-hover-dark/50 last:border-0 min-w-0">
-                                        <span class="text-[10px] font-mono font-bold text-primary-light dark:text-primary-dark shrink-0 w-40 truncate" title="${k}">${k}</span>
-                                        <span class="text-[11px] text-text-light dark:text-text-dark break-all">${v}</span>
+                                    <div class="flex gap-3 py-1.5 border-b border-neutral-200 last:border-0 min-w-0">
+                                        <span class="text-xs font-mono font-bold text-primary-600 shrink-0 w-40 truncate" title="${k}">${k}</span>
+                                        <span class="text-xs break-all" style="color:#121212;">${v}</span>
                                     </div>`).join('');
                             };
                             return `
                                 <div class="flex flex-col gap-5">
                                     <div>
-                                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-2">Labels (${Object.keys(labels).length})</div>
-                                        <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">${renderKV(labels)}</div>
+                                        <div class="text-xs font-bold uppercase tracking-widest text-muted mb-2">Labels (${Object.keys(labels).length})</div>
+                                        <div class="rounded p-4" style="background:#F2F2F2;">${renderKV(labels)}</div>
                                     </div>
                                     <div>
-                                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-2">Annotations (${Object.keys(annotations).length})</div>
-                                        <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">${renderKV(annotations)}</div>
+                                        <div class="text-xs font-bold uppercase tracking-widest text-muted mb-2">Annotations (${Object.keys(annotations).length})</div>
+                                        <div class="rounded p-4" style="background:#F2F2F2;">${renderKV(annotations)}</div>
                                     </div>
                                     ${inc.alert_starts_at ? `
                                     <div>
-                                        <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-2">Fire Time (Alertmanager)</div>
-                                        <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">
-                                            <span class="text-[11px] font-mono text-text-light dark:text-text-dark">${inc.alert_starts_at}</span>
+                                        <div class="text-xs font-bold uppercase tracking-widest text-muted mb-2">Fire Time (Alertmanager)</div>
+                                        <div class="rounded p-4" style="background:#F2F2F2;">
+                                            <span class="text-xs font-mono" style="color:#121212;">${inc.alert_starts_at}</span>
                                         </div>
                                     </div>` : ''}
                                 </div>`;
@@ -137,56 +140,62 @@ export async function renderControlRoomView(container) {
                     </div>
                 </div>
 
-                <!-- 3. Diagnostic Logs (Bento Unit) — intentionally always dark like a terminal -->
-                <div class="md:col-span-3 row-span-4 bento-card overflow-hidden !bg-background-dark !border-surface-hover-dark">
-                    <div class="text-[10px] font-bold text-text-dark/40 uppercase tracking-widest mb-4 flex items-center justify-between">
+                <!-- 3. Diagnostic Stream — intentionally always dark (terminal surface) -->
+                <!-- #2 FIX: inline styles replace !bg-background-dark / !border-surface-hover-dark -->
+                <div class="md:col-span-3 row-span-4 bento-card overflow-hidden flex flex-col" style="background:#0F1117; border-color:#1E2030;">
+                    <div class="flex items-center justify-between mb-4 flex-shrink-0" style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.4);">
                         <span>Diagnostic Stream</span>
-                        <span class="flex h-2 w-2 rounded-full ${!inc.telemetry_available ? 'bg-yellow-500' : (inc.rca_completed ? 'bg-alert-green' : 'bg-alert-green animate-ping')}"></span>
+                        <span class="rounded-full ${!inc.telemetry_available ? 'bg-warning-500' : (inc.rca_completed ? 'bg-success-500' : 'bg-success-500 animate-ping')}" style="width:8px; height:8px; display:inline-block; flex-shrink:0;"></span>
                     </div>
-                    <div class="flex-grow terminal text-primary-dark/80 p-0 shadow-none border-none overflow-x-hidden">
+                    <div class="flex-grow terminal overflow-x-hidden" style="background:transparent; border:none; box-shadow:none; color:#a5f3fc; padding:0;">
                         <div class="space-y-1">
-                            <div class="text-text-dark/20">[00:00:01] PROBE: ${inc.labels?.instance || inc.labels?.cluster || inc.context || 'unknown'}</div>
-                            <div class="text-text-dark/20">[00:00:02] CONTEXT: ${inc.context}</div>
-                            ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `<div class="break-words"><span class="text-text-dark/20">[${new Date(e.timestamp).toLocaleTimeString()}]</span> ${e.description}</div>`).join('')}
-                            ${!inc.rca_completed ? '<div class="animate-pulse text-primary-dark">_</div>' : ''}
+                            <div style="color:rgba(255,255,255,0.25);">[00:00:01] PROBE: ${inc.labels?.instance || inc.labels?.cluster || inc.context || 'unknown'}</div>
+                            <div style="color:rgba(255,255,255,0.25);">[00:00:02] CONTEXT: ${inc.context}</div>
+                            ${inc.events.filter(e => e.source === 'Diagnostics').map(e => `
+                                <div class="break-words">
+                                    <span style="color:rgba(255,255,255,0.25);">[${new Date(e.timestamp).toLocaleTimeString()}]</span>
+                                    ${e.description}
+                                </div>`).join('')}
+                            ${!inc.rca_completed ? '<div style="color:#346EEC;" class="animate-pulse">_</div>' : ''}
                         </div>
                     </div>
                 </div>
 
-                <!-- 4. Timeline (Bento Unit) -->
+                <!-- 4. Event Timeline -->
                 <div class="md:col-span-3 row-span-4 bento-card">
-                    <div class="text-[10px] font-bold text-muted uppercase tracking-widest mb-6">Event Timeline</div>
+                    <div class="text-xs font-bold text-muted uppercase tracking-widest mb-6">Event Timeline</div>
                     <div class="flex-grow overflow-auto relative pl-2">
-                        <div class="absolute left-3 top-0 bottom-0 w-[1px] bg-surface-hover-light dark:bg-surface-hover-dark"></div>
+                        <div class="absolute left-3 top-0 bottom-0 w-px bg-neutral-200"></div>
                         <div class="space-y-8 relative">
-                            ${inc.events.map((e, i) => `
+                            ${inc.events.map((e) => `
                                 <div class="relative pl-8 group">
-                                    <div class="absolute left-0 top-1.5 w-2 h-2 rounded-full border-2 ${e.description.includes('CRITICAL') ? 'border-alert-red bg-alert-red/20' : 'border-primary-light dark:border-primary-dark bg-surface-light dark:bg-surface-dark'} group-hover:scale-125 transition-transform"></div>
-                                    <div class="text-[9px] font-bold text-muted mb-1">${new Date(e.timestamp).toLocaleTimeString()}</div>
-                                    <div class="text-[11px] font-medium leading-normal ${e.description.includes('CRITICAL') ? 'text-alert-red font-bold' : ''}">${e.description}</div>
+                                    <div class="absolute left-0 top-1.5 w-2 h-2 rounded-full border-2 group-hover:scale-125 transition-transform ${e.description.includes('CRITICAL') ? 'border-danger-500 bg-danger-50' : 'border-primary-600 bg-white'}"></div>
+                                    <div class="text-xs font-bold text-muted mb-1">${new Date(e.timestamp).toLocaleTimeString()}</div>
+                                    <div class="text-xs font-medium leading-normal ${e.description.includes('CRITICAL') ? 'text-danger-500 font-bold' : ''}">${e.description}</div>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 </div>
 
-                <!-- 5. Remediation (Bento Unit) -->
-                <div class="md:col-span-9 row-span-2 bento-card border-t-4 ${inc.rca_completed ? 'border-t-accent-primary' : 'border-t-muted'} bg-accent-primary/5">
+                <!-- 5. AI Suggested Remediation -->
+                <!-- #1 FIX: accent-primary replaced with primary-600 tokens throughout -->
+                <div class="md:col-span-9 row-span-2 bento-card border-t-4 ${inc.rca_completed ? 'border-t-primary-600' : 'border-t-neutral-200'} bg-primary-50">
                     <div class="flex flex-col gap-3 h-full">
                         <div class="flex items-center gap-2 flex-shrink-0">
-                            <span class="text-[10px] font-bold text-accent-primary uppercase tracking-widest">AI Suggested Remediation</span>
-                            ${inc.rca_completed ? '<span class="text-[9px] font-bold px-2 py-0.5 bg-accent-primary/20 text-accent-primary rounded">ANALYSIS COMPLETE</span>' : ''}
-                            ${!inc.telemetry_available ? '<span class="text-[9px] font-bold px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded">NO TELEMETRY</span>' : ''}
+                            <span class="text-xs font-bold text-primary-600 uppercase tracking-widest">AI Suggested Remediation</span>
+                            ${inc.rca_completed ? '<span class="text-xs font-bold px-2 py-0.5 rounded" style="background:#D2E0FE; color:#134AC1;">Analysis Complete</span>' : ''}
+                            ${!inc.telemetry_available ? '<span class="text-xs font-bold px-2 py-0.5 rounded" style="background:#FFF3DE; color:#A36701; border:1px solid #F7D8A3;">No Telemetry</span>' : ''}
                         </div>
                         ${inc.suggested_remediation
-                            ? `<div class="flex-grow p-4 rounded-xl bg-black/30 border border-accent-primary/20 overflow-auto">
-                                <p class="text-sm leading-relaxed">${inc.suggested_remediation}</p>
+                            ? `<div class="flex-grow p-4 rounded overflow-auto" style="background:#FFFFFF; border:1px solid #B1CAFE;">
+                                <p class="text-sm leading-relaxed" style="color:#121212;">${inc.suggested_remediation}</p>
                                </div>
-                               <p class="text-[10px] text-muted italic flex-shrink-0">Suggestion only — all actions must be performed manually by an on-call engineer.</p>`
+                               <p class="text-xs text-muted italic flex-shrink-0">Suggestion only — all actions must be performed manually by an on-call engineer.</p>`
                             : (inc.rca_completed
                                 ? `<p class="text-sm text-muted italic">No remediation suggestion generated. Review the AI RCA tab for details.</p>`
                                 : `<div class="flex items-center gap-3 text-muted flex-grow">
-                                    <div class="animate-spin h-4 w-4 border-2 border-accent-primary/20 border-t-accent-primary rounded-full flex-shrink-0"></div>
+                                    <div class="animate-spin h-4 w-4 rounded-full flex-shrink-0" style="border:2px solid #D2E0FE; border-top-color:#134AC1;"></div>
                                     <span class="text-sm italic">Waiting for AI analysis...</span>
                                    </div>`)
                         }
@@ -200,14 +209,14 @@ export async function renderControlRoomView(container) {
             await navigator.clipboard.writeText(inc.incident_id);
             const btn = container.querySelector('#copy-id-btn');
             btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-            btn.classList.add('text-alert-green');
+            btn.style.color = '#007B51';
             setTimeout(() => {
                 btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-                btn.classList.remove('text-alert-green');
+                btn.style.color = '';
             }, 2000);
         };
 
-        // Tabs Logic
+        // Tabs — IQM Horizontal Tabs: Primary-600 active border, muted inactive
         const aiBtn      = container.querySelector('#view-ai-btn');
         const rawBtn     = container.querySelector('#view-raw-btn');
         const payloadBtn = container.querySelector('#view-payload-btn');
@@ -221,10 +230,14 @@ export async function renderControlRoomView(container) {
         const allBtns     = [aiBtn, rawBtn, payloadBtn, runbookBtn];
         const allContents = [aiContent, rawContent, payloadContent, runbookContent];
 
+        // #1 FIX: border-primary-600 replaces border-accent-primary in activateTab
         function activateTab(btn, content) {
-            allBtns.forEach(b => { b.classList.remove('border-accent-primary'); b.classList.add('border-transparent', 'text-muted'); });
+            allBtns.forEach(b => {
+                b.classList.remove('border-primary-600', 'text-primary-600');
+                b.classList.add('border-transparent', 'text-muted');
+            });
             allContents.forEach(c => c.classList.add('hidden'));
-            btn.classList.add('border-accent-primary');
+            btn.classList.add('border-primary-600', 'text-primary-600');
             btn.classList.remove('border-transparent', 'text-muted');
             content.classList.remove('hidden');
         }
@@ -248,7 +261,7 @@ export async function renderControlRoomView(container) {
                         <div class="flex flex-col items-center gap-3 text-center p-6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                             <p class="text-sm text-muted">Confluence not configured.</p>
-                            <p class="text-[11px] text-muted">Add your Confluence details in <strong>Settings → Confluence Runbooks</strong>.</p>
+                            <p class="text-xs text-muted">Add your Confluence details in <strong>Settings → Confluence Runbooks</strong>.</p>
                         </div>`;
                     return;
                 }
@@ -257,30 +270,25 @@ export async function renderControlRoomView(container) {
                     runbookInner.innerHTML = `
                         <div class="flex flex-col items-center gap-3 text-center p-6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <p class="text-sm text-muted">No runbook found for <span class="font-bold text-text-light dark:text-text-dark">${data.alert_name}</span>.</p>
-                            <p class="text-[11px] text-muted">Consider creating a runbook in Confluence under the configured root page.</p>
+                            <p class="text-sm text-muted">No runbook found for <strong style="color:#121212;">${data.alert_name}</strong>.</p>
+                            <p class="text-xs text-muted">Consider creating a runbook in Confluence under the configured root page.</p>
                         </div>`;
                     return;
                 }
 
                 runbookInner.innerHTML = `
                     <div class="flex flex-col gap-3 p-4 h-full">
-                        <!-- Runbook header -->
                         <div class="flex items-center justify-between flex-shrink-0 gap-3 flex-wrap">
                             <div class="flex items-center gap-2 min-w-0">
-                                <div class="p-1.5 rounded bg-blue-500/10 text-blue-400 flex-shrink-0">
+                                <div class="p-1.5 rounded flex-shrink-0" style="background:#F2FAFF; color:#0874AA;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                 </div>
-                                <span class="text-[11px] font-bold text-blue-400 uppercase tracking-widest truncate">${data.runbook_title}</span>
+                                <span class="text-xs font-bold truncate" style="color:#0874AA;">${data.runbook_title}</span>
                             </div>
                             <div class="flex items-center gap-2 flex-shrink-0">
                                 ${data.runbook_id ? `
-                                <button id="rb-view-full-btn"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                                           bg-blue-500/10 hover:bg-blue-500/20 text-blue-400
-                                           text-[10px] font-bold uppercase tracking-widest transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2.5">
+                                <button id="rb-view-full-btn" class="btn-outline flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                         <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
                                         <circle cx="12" cy="12" r="3"/>
                                     </svg>
@@ -288,19 +296,16 @@ export async function renderControlRoomView(container) {
                                 </button>` : ''}
                                 ${data.runbook_url ? `
                                 <a href="${data.runbook_url}" target="_blank" rel="noopener noreferrer"
-                                    class="flex items-center gap-1 text-[9px] font-bold text-muted
-                                           hover:text-primary-light dark:hover:text-primary-dark
-                                           uppercase tracking-widest transition-colors">
+                                    class="flex items-center gap-1 text-xs font-bold text-muted hover:text-primary-600 transition-colors">
                                     Confluence
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                 </a>` : ''}
                             </div>
                         </div>
-                        <!-- AI suggestion -->
-                        <div class="flex-grow overflow-auto bg-black/20 rounded-xl border border-white/5 p-4">
-                            <p class="text-[12px] leading-relaxed whitespace-pre-wrap">${data.suggestion}</p>
+                        <div class="flex-grow overflow-auto rounded p-4" style="background:#F2F6FF; border:1px solid #D2E0FE;">
+                            <p class="text-xs leading-relaxed whitespace-pre-wrap" style="color:#121212;">${data.suggestion}</p>
                         </div>
-                        <p class="text-[10px] text-muted italic flex-shrink-0">
+                        <p class="text-xs text-muted italic flex-shrink-0">
                             AI-grounded suggestion · all actions must be performed manually by the on-call engineer
                         </p>
                     </div>`;
@@ -309,22 +314,19 @@ export async function renderControlRoomView(container) {
                         openRunbookModal(data.runbook_id, data.runbook_title, data.runbook_url);
                 }
             } catch (e) {
-                runbookInner.innerHTML = `<div class="text-alert-red text-sm p-4">Failed to fetch runbook suggestion: ${e.message}</div>`;
+                runbookInner.innerHTML = `<div class="text-danger-500 text-sm p-4">Failed to fetch runbook suggestion: ${e.message}</div>`;
             }
         };
 
-
-} catch (e) {
+    } catch (e) {
         clearTimeout(timeout);
         const isTimeout = e.name === 'AbortError';
         container.innerHTML = `
             <div class="p-20 text-center flex flex-col items-center gap-4">
-                <div class="text-alert-red font-bold font-mono text-sm">
-                    ${isTimeout ? 'LINK TIMEOUT — Backend did not respond within 10s' : `LINK FAILURE: ${e.message}`}
+                <div class="text-danger-500 font-bold text-sm">
+                    ${isTimeout ? 'Request timed out — backend did not respond within 10s.' : `Connection failed: ${e.message}`}
                 </div>
-                <button id="cr-retry-btn" class="mt-2 px-6 py-2 bg-primary-light dark:bg-primary-dark text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity">
-                    Retry
-                </button>
+                <button id="cr-retry-btn" class="btn-primary mt-2">Retry</button>
             </div>`;
         container.querySelector('#cr-retry-btn').onclick = () => renderControlRoomView(container);
     }

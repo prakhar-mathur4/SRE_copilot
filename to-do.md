@@ -7,16 +7,16 @@
 
 ## 🔴 Critical — Broken or Invisible
 
-- [ ] **#1 — `accent-primary` token undefined**
+- [x] **#1 — `accent-primary` token undefined**
   - Affects: `ControlRoom.js` — tabs (`border-accent-primary`, `text-accent-primary`), remediation card (`bg-accent-primary/5`, `bg-accent-primary/20`), AI badge (`bg-accent-primary/10`)
   - Fix: Replace all `accent-primary` references with `Primary-600` tokens → `text-primary-600` / `border-primary-600` / `bg-primary-50`
 
-- [ ] **#2 — Terminal card forced dark background is broken**
+- [x] **#2 — Terminal card forced dark background is broken**
   - Affects: `ControlRoom.js` — Diagnostic Stream bento card uses `!bg-background-dark !border-surface-hover-dark` with `!important` override
   - `background-dark` now resolves to `#FAFAFA` (light), making the terminal unreadable
   - Fix: Replace Tailwind `!important` overrides with inline style `background:#0F1117; border-color:#E6E6E6`
 
-- [ ] **#3 — `text-cyan-200/80` invalid in terminal output**
+- [x] **#3 — `text-cyan-200/80` invalid in terminal output**
   - Affects: `ControlRoom.js` — terminal `<pre>` text color
   - Fix: Replace with inline style `color:#a5f3fc` (terminal is an intentional dark-surface exception)
 
