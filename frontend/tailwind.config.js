@@ -8,46 +8,99 @@ export default {
   theme: {
     extend: {
       colors: {
+        // IQM Primary — Blue theme
         primary: {
-          light: '#7C3AED', // Violet
-          dark: '#8B5CF6',  // Vibrant Violet
-          DEFAULT: '#7C3AED',
+          800:     '#0C275E',
+          700:     '#123787',
+          600:     '#134AC1',
+          500:     '#346EEC',
+          400:     '#4F84F7',
+          300:     '#78A1FC',
+          200:     '#B1CAFE',
+          100:     '#D2E0FE',
+          75:      '#E2EBFF',
+          50:      '#F2F6FF',
+          light:   '#134AC1',
+          dark:    '#134AC1',
+          DEFAULT: '#134AC1',
         },
+        // IQM Neutral scale
+        neutral: {
+          1000: '#121212',
+          600:  '#4D4D4D',
+          500:  '#666666',
+          400:  '#999999',
+          300:  '#CCCCCC',
+          200:  '#E6E6E6',
+          100:  '#F2F2F2',
+          75:   '#FAFAFA',
+          0:    '#FFFFFF',
+        },
+        // IQM Semantic
+        danger: {
+          700: '#8C0000',
+          500: '#CC0909',
+          200: '#F29696',
+          75:  '#FCDEDE',
+          50:  '#FFF2F2',
+        },
+        success: {
+          700: '#003B27',
+          500: '#007B51',
+          100: '#8EE6C9',
+          75:  '#B0EFDA',
+          50:  '#ECFFFD',
+        },
+        warning: {
+          700: '#472D00',
+          500: '#A36701',
+          100: '#F0CB89',
+          75:  '#F7D8A3',
+          50:  '#FFF3DE',
+        },
+        info: {
+          700: '#003B59',
+          500: '#0874AA',
+          100: '#B0D9EE',
+          75:  '#D7EBF5',
+          50:  '#F2FAFF',
+        },
+        // Legacy aliases — keep so existing view classes resolve correctly
         background: {
-          light: '#FAF5FF', // Soft Lavender White
-          dark: '#0B0A1A',  // Deep Midnight Violet
-          DEFAULT: '#FAF5FF',
+          light:   '#FAFAFA',
+          dark:    '#FAFAFA',
+          DEFAULT: '#FAFAFA',
         },
         surface: {
-          light: '#FFFFFF',
-          dark: '#16142E',  // Dark Violet Slate
+          light:   '#FFFFFF',
+          dark:    '#FFFFFF',
           DEFAULT: '#FFFFFF',
           hover: {
-            light: '#F3E8FF',
-            dark: '#242145',
-            DEFAULT: '#F3E8FF',
-          }
+            light:   '#E6E6E6',
+            dark:    '#E6E6E6',
+            DEFAULT: '#E6E6E6',
+          },
         },
         text: {
-          light: '#F8FAFC', // Ghost White
-          dark: '#F8FAFC',  // Ghost White
-          DEFAULT: '#1E1B4B',
+          light:   '#121212',
+          dark:    '#121212',
+          DEFAULT: '#121212',
         },
         muted: {
-          light: '#F8FAFC',  // Ghost White
-          dark: '#F8FAFC',   // Ghost White
-          DEFAULT: '#F8FAFC', // Ghost White
+          light:   '#666666',
+          dark:    '#666666',
+          DEFAULT: '#666666',
         },
         alert: {
-          red: '#EF4444',
-          orange: '#F59E0B',
-          green: '#10B981',
-        }
+          red:    '#CC0909',
+          orange: '#A36701',
+          green:  '#007B51',
+        },
       },
       fontFamily: {
-        heading: ['Fira Code', 'monospace'],
-        body: ['Fira Sans', 'sans-serif'],
-        mono: ['Fira Code', 'monospace'],
+        heading: ['Inter', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        body:    ['Inter', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        mono:    ['"Fira Code"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },
   },

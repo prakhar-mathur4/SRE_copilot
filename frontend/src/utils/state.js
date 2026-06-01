@@ -64,7 +64,7 @@ export const state = {
     activityLog: [],      // rolling buffer of last 30 WS events for Dashboard feed
     incidentVersion: 0,   // increments on any incident data change, triggers re-render
     runbookCount: null,   // null = not yet loaded; number = count from last Confluence sync
-    theme: 'dark'
+    theme: 'light'
 }
 
 // Simple event listener pattern for state changes
@@ -96,5 +96,5 @@ window.addEventListener('popstate', () => {
 });
 
 export function applyTheme() {
-    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('dark');
 }
