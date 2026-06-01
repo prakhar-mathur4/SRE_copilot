@@ -171,7 +171,7 @@ export async function renderControlRoomView(container) {
                                 <div class="relative pl-8 group">
                                     <div class="absolute left-0 top-1.5 w-2 h-2 rounded-full border-2 group-hover:scale-125 transition-transform ${e.description.includes('CRITICAL') ? 'border-danger-500 bg-danger-50' : 'border-primary-600 bg-white'}"></div>
                                     <div class="text-xs font-bold text-muted mb-1">${new Date(e.timestamp).toLocaleTimeString()}</div>
-                                    <div class="text-xs font-medium leading-normal ${e.description.includes('CRITICAL') ? 'text-danger-500 font-bold' : ''}">${e.description}</div>
+                                    <div class="text-xs font-normal leading-normal ${e.description.includes('CRITICAL') ? 'text-danger-500 font-bold' : ''}">${e.description}</div>
                                 </div>
                             `).join('')}
                         </div>

@@ -203,7 +203,7 @@ function cardHtml(rb) {
             <div class="flex items-center justify-between pt-3 border-t border-neutral-200">
                 <button class="rb-read-btn flex items-center gap-2 px-3.5 py-1.5 rounded
                                bg-info-50 hover:bg-info-75 text-info-500
-                               text-xs font-bold uppercase tracking-widest transition-colors"
+                               text-xs font-bold transition-colors"
                     data-id="${escAttr(rb.id)}"
                     data-title="${escAttr(rb.title)}"
                     data-url="${escAttr(rb.url || '')}">

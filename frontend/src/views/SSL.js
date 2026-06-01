@@ -105,7 +105,7 @@ function renderDashboard(container, domains) {
                     <button id="ssl-copy-btn"
                         class="flex items-center gap-1.5 px-3 h-8 rounded
                                bg-danger-50 text-danger-500 border border-danger-75
-                               text-xs font-bold uppercase tracking-widest
+                               text-xs font-bold
                                hover:bg-danger-75 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2.5">

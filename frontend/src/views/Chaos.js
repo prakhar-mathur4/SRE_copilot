@@ -29,7 +29,7 @@ export async function renderChaosView(container) {
                             </div>
                             <p class="text-sm text-muted mb-10 leading-relaxed font-medium">${s.description}</p>
                         </div>
-                        <button class="chaos-toggle-btn w-full h-12 rounded font-bold uppercase tracking-widest text-xs transition-all duration-300
+                        <button class="chaos-toggle-btn w-full h-12 rounded font-bold text-xs transition-all duration-300
                             ${s.is_active ? 'bg-warning-500 text-white hover:bg-warning-700' : 'bg-neutral-100 text-text-light hover:bg-primary-600 hover:text-white'}
                         " data-id="${s.id}" data-active="${s.is_active}">
                             ${s.is_active ? 'Abort Simulation' : 'Trigger Scenario'}

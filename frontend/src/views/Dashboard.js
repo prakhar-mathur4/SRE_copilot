@@ -33,7 +33,7 @@ export async function renderDashboardView(container) {
                             Alerts (Last 24h)
                         </div>
                         <div class="text-3xl font-heading font-bold text-text-light" id="kpi-24h">${noiseStats.received_last_24h ?? 0}</div>
-                        <div class="text-[11px] text-muted mt-2 font-mono">${noiseStats.dropped_last_24h ?? 0} suppressed &nbsp;·&nbsp; ${noiseStats.processed_last_24h ?? 0} processed</div>
+                        <div class="text-[11px] text-muted mt-2 font-mono font-bold">${noiseStats.dropped_last_24h ?? 0} suppressed &nbsp;·&nbsp; ${noiseStats.processed_last_24h ?? 0} processed</div>
                     </div>
 
                     <!-- KPI 2: Active Critical -->
@@ -43,7 +43,7 @@ export async function renderDashboardView(container) {
                             Active Critical
                         </div>
                         <div class="text-3xl font-heading font-bold text-danger-500" id="kpi-crit">${critCount}</div>
-                        <div class="text-[11px] text-muted mt-2 font-mono">critical &amp; page severity</div>
+                        <div class="text-[11px] text-muted mt-2 font-mono font-bold">critical &amp; page severity</div>
                     </div>
 
                     <!-- KPI 3: Active Warning -->
@@ -53,7 +53,7 @@ export async function renderDashboardView(container) {
                             Active Warning
                         </div>
                         <div class="text-3xl font-heading font-bold text-warning-500" id="kpi-warn">${warnCount}</div>
-                        <div class="text-[11px] text-muted mt-2 font-mono">warning severity</div>
+                        <div class="text-[11px] text-muted mt-2 font-mono font-bold">warning severity</div>
                     </div>
 
                     <!-- KPI 4: Active Info / Other -->
@@ -63,7 +63,7 @@ export async function renderDashboardView(container) {
                             Active Info
                         </div>
                         <div class="text-3xl font-heading font-bold text-info-500" id="kpi-info">${infoCount}</div>
-                        <div class="text-[11px] text-muted mt-2 font-mono">info &amp; other severity</div>
+                        <div class="text-[11px] text-muted mt-2 font-mono font-bold">info &amp; other severity</div>
                     </div>
 
                 </div>
@@ -101,12 +101,12 @@ export async function renderDashboardView(container) {
                                             <div class="p-4 rounded bg-neutral-100 border border-neutral-200 text-center overflow-hidden">
                                                 <div class="text-[11px] text-muted uppercase font-bold tracking-widest mb-2">CPU</div>
                                                 <div id="cpu-val-${env.id}" class="text-2xl font-heading font-bold text-primary-600 leading-none">—</div>
-                                                <div class="text-[11px] text-muted mt-1">utilization</div>
+                                                <div class="text-[11px] text-muted mt-1 font-bold">utilization</div>
                                             </div>
                                             <div class="p-4 rounded bg-neutral-100 border border-neutral-200 text-center overflow-hidden">
                                                 <div class="text-[11px] text-muted uppercase font-bold tracking-widest mb-2">Memory</div>
                                                 <div id="mem-val-${env.id}" class="text-2xl font-heading font-bold text-primary-500 leading-none">—</div>
-                                                <div class="text-[11px] text-muted mt-1">utilization</div>
+                                                <div class="text-[11px] text-muted mt-1 font-bold">utilization</div>
                                             </div>
                                         </div>
 
