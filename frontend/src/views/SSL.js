@@ -136,9 +136,9 @@ function renderDashboard(container, domains) {
             <!-- Table -->
             ${domains.length === 0 ? emptyState() : `
             <div class="pane overflow-hidden">
-                <table class="w-full text-[11px]">
-                    <thead>
-                        <tr class="border-b border-neutral-200 text-[11px] font-bold uppercase tracking-widest text-muted">
+                <table class="w-full text-xs border-collapse">
+                    <thead class="table-header">
+                        <tr>
                             <th class="text-left px-4 py-2.5 w-8">#</th>
                             <th class="text-left px-4 py-2.5">Domain</th>
                             <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light select-none" id="sort-status">
@@ -151,7 +151,7 @@ function renderDashboard(container, domains) {
                                 Expires${sortIcon('expires')}
                             </th>
                             <th class="text-left px-4 py-2.5">Issuer</th>
-                            <th class="px-4 py-2.5 w-8"></th>
+                            <th class="px-4 py-2.5 text-right w-8"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -264,7 +264,7 @@ function tableRow(d, i) {
         <tr class="border-b border-neutral-200 hover:bg-primary-50 transition-colors ${rowBg}">
             <td class="px-4 py-2 text-muted font-mono text-[11px]">${i + 1}</td>
             <td class="px-4 py-2">
-                <span class="font-mono font-medium">${escHtml(d.domain)}${escHtml(portStr)}</span>
+                <span class="font-mono font-bold text-text-light">${escHtml(d.domain)}${escHtml(portStr)}</span>
                 ${d.error ? `<div class="text-[11px] text-danger-500 mt-0.5 truncate max-w-[220px]">${escHtml(d.error)}</div>` : ''}
             </td>
             <td class="px-4 py-2">

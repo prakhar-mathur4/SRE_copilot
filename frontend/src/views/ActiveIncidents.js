@@ -38,7 +38,7 @@ function renderContext(raw) {
     if (idx === -1) return `<span>${raw}</span>`;
     const key = raw.slice(0, idx);
     const val = raw.slice(idx + 1);
-    return `<span class="text-[11px] font-mono text-neutral-400 uppercase">${key}:</span><span class="ml-1">${val}</span>`;
+    return `<span class="text-[11px] font-mono text-neutral-400 uppercase">${key}:</span><span class="ml-1 text-text-light">${val}</span>`;
 }
 
 function severityBadgeClass(sev) {
@@ -62,7 +62,7 @@ function openQuickView(inc) {
         return entries.map(([k, v]) => `
             <div class="flex gap-3 py-1.5 border-b border-neutral-200 last:border-0 min-w-0">
                 <span class="text-xs font-mono font-bold text-primary-600 shrink-0 w-36 truncate" title="${k}">${k}</span>
-                <span class="text-[11px] text-text-light break-all">${v}</span>
+                <span class="text-xs text-text-light break-all">${v}</span>
             </div>`).join('');
     };
 
@@ -85,7 +85,7 @@ function openQuickView(inc) {
                         <span class="${severityBadgeClass(inc.severity)}">${inc.severity}</span>
                         <span class="text-[11px] font-mono text-muted">${inc.incident_id.slice(0, 16)}…</span>
                     </div>
-                    <h2 class="text-lg font-bold text-text-light truncate">${inc.alert_name}</h2>
+                    <h2 class="text-base font-bold text-text-light truncate">${inc.alert_name}</h2>
                     <div class="flex gap-4 text-xs text-muted mt-0.5 flex-wrap">
                         <span>Started: <span class="text-text-light">${relativeTime(resolveFireTime(inc))}</span></span>
                         <span>Updated: <span class="text-text-light">${relativeTime(inc.last_updated)}</span></span>
@@ -188,36 +188,58 @@ export function renderActiveIncidentsView(container) {
     });
 
     container.innerHTML = `
-        <div class="h-full min-h-0 pane flex flex-col">
-            <div class="pane-header flex items-center justify-between">
-                <span>Firing Alerts <span class="text-text-light font-bold">${active.length}</span></span>
-                <span class="flex items-center gap-1.5 ${active.length > 0 ? 'text-danger-500' : 'text-success-500'} text-[11px] font-bold">
-                    <span class="w-1.5 h-1.5 rounded-full ${active.length > 0 ? 'bg-danger-500 animate-pulse' : 'bg-success-500'}"></span>
-                    ${active.length > 0 ? 'LIVE' : 'HEALTHY'}
-                </span>
+        <div class="flex flex-col gap-4 h-full min-h-0">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h2 class="text-lg font-bold">Firing Alerts</h2>
+                    <p id="incidents-count-label" class="text-[11px] text-muted">${active.length} active incident${active.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+                            xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input id="incident-search" type="text" placeholder="Search alerts…" autocomplete="off"
+                            class="bg-neutral-75 border border-neutral-200 rounded pl-7 pr-3 text-text-light focus:outline-none focus:border-primary-300"
+                            style="height:26px; font-size:11px; width:180px;" />
+                    </div>
+                    <select id="incident-context-filter"
+                        class="bg-neutral-75 border border-neutral-200 rounded px-2 font-bold text-primary-600 focus:outline-none"
+                        style="height:26px; font-size:11px; text-transform:none; letter-spacing:normal;">
+                        <option value="all">All Contexts</option>
+                        ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
+                    </select>
+                    <span class="flex items-center gap-1.5 ${active.length > 0 ? 'text-danger-500' : 'text-success-500'} text-[11px] font-bold">
+                        <span class="w-1.5 h-1.5 rounded-full ${active.length > 0 ? 'bg-danger-500 animate-pulse' : 'bg-success-500'}"></span>
+                        ${active.length > 0 ? 'LIVE' : 'HEALTHY'}
+                    </span>
+                </div>
             </div>
-            <div class="flex-grow overflow-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="table-header">
-                        <tr>
-                            <th class="p-4">ID</th>
-                            <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-sev">Severity${sortIcon('severity')}</th>
-                            <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-name">Alert Name${sortIcon('name')}</th>
-                            <th class="p-4">Context</th>
-                            <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-time">Time${sortIcon('time')}</th>
-                            <th class="p-4 text-center" title="Duplicate firings dropped by storm protection">Suppressed</th>
-                            <th class="p-4 text-right normal-case font-normal">
-                                <select id="incident-context-filter" class="bg-neutral-75 border border-neutral-200 rounded h-7 px-3 text-xs text-muted focus:ring-1 ring-primary-600">
-                                    <option value="all">All Contexts</option>
-                                    ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
-                                </select>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="incidents-body">
-                        ${active.length === 0 ? `<tr><td colspan="7" class="empty-state text-primary-600">All Clear — No Active Incidents</td></tr>` : ''}
-                    </tbody>
-                </table>
+
+            <!-- Table -->
+            <div class="pane flex-grow flex flex-col min-h-0 overflow-hidden">
+                <div class="flex-grow overflow-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="p-4">ID</th>
+                                <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-sev">Severity${sortIcon('severity')}</th>
+                                <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-name">Alert Name${sortIcon('name')}</th>
+                                <th class="p-4">Context</th>
+                                <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-time">Time${sortIcon('time')}</th>
+                                <th class="p-4 text-center" title="Duplicate firings dropped by storm protection">Suppressed</th>
+                                <th class="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidents-body">
+                            ${active.length === 0 ? `<tr><td colspan="7" class="empty-state text-primary-600">All Clear — No Active Incidents</td></tr>` : ''}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
@@ -226,19 +248,20 @@ export function renderActiveIncidentsView(container) {
     active.forEach(inc => {
         const row = document.createElement('tr');
         row.className = 'border-b border-neutral-200 hover:bg-neutral-75 cursor-pointer transition-colors text-[13px]';
+        row.dataset.name = inc.alert_name.toLowerCase();
         row.innerHTML = `
             <td class="p-4 font-mono text-[11px] text-muted">${inc.incident_id.slice(0, 8)}</td>
             <td class="p-4"><span class="${severityBadgeClass(inc.severity)}">${inc.severity}</span></td>
             <td class="p-4 font-bold text-text-light">${inc.alert_name}</td>
-            <td class="p-4 font-medium text-muted">${renderContext(inc.context)}</td>
+            <td class="p-4 font-normal text-muted">${renderContext(inc.context)}</td>
             <td class="p-4 text-muted text-[11px]" title="${new Date(resolveFireTime(inc).endsWith('Z') ? resolveFireTime(inc) : resolveFireTime(inc) + 'Z').toLocaleString()}">${relativeTime(resolveFireTime(inc))}</td>
             <td class="p-4 text-center">
                 ${inc.dedup_count > 0
                     ? `<span class="px-2 py-0.5 bg-warning-50 text-warning-500 border border-warning-75 rounded-full text-[11px] font-bold">${inc.dedup_count}x</span>`
                     : '<span class="text-neutral-400 text-xs">—</span>'}
             </td>
-            <td class="p-4 text-center">
-                <button class="quickview-btn btn-outline" style="height:28px; padding:0 10px; font-size:11px;" data-id="${inc.incident_id}">View</button>
+            <td class="p-4 text-right">
+                <button class="quickview-btn btn-outline" style="height:28px; padding:0 10px; font-size:12px;" data-id="${inc.incident_id}">View</button>
             </td>
         `;
 
@@ -264,6 +287,24 @@ export function renderActiveIncidentsView(container) {
     const filter = container.querySelector('#incident-context-filter');
     if (filter) {
         filter.onchange = (e) => updateState({ activeIncidentsFilter: e.target.value });
+    }
+
+    const search = container.querySelector('#incident-search');
+    if (search) {
+        search.addEventListener('input', () => {
+            const q = search.value.toLowerCase().trim();
+            const rows = body.querySelectorAll('tr[data-name]');
+            let shown = 0;
+            rows.forEach(r => {
+                const match = !q || r.dataset.name.includes(q);
+                r.style.display = match ? '' : 'none';
+                if (match) shown++;
+            });
+            const label = container.querySelector('#incidents-count-label');
+            if (label) label.textContent = q
+                ? `${shown} of ${active.length} incident${active.length !== 1 ? 's' : ''}`
+                : `${active.length} active incident${active.length !== 1 ? 's' : ''}`;
+        });
     }
 
     container.querySelector('#sort-sev').onclick = () => {
