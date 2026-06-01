@@ -30,8 +30,8 @@ function sortDomains(domains) {
 function sortIcon(col) {
     if (_sortCol !== col) return `<span class="opacity-30 ml-1">⇅</span>`;
     return _sortDir === 1
-        ? `<span class="ml-1 text-primary-light dark:text-primary-dark">▲</span>`
-        : `<span class="ml-1 text-primary-light dark:text-primary-dark">▼</span>`;
+        ? `<span class="ml-1 text-primary-600">▲</span>`
+        : `<span class="ml-1 text-primary-600">▼</span>`;
 }
 
 function handleSort(col, container, domains) {
@@ -58,7 +58,7 @@ export async function renderSSLView(container) {
         }
     } catch (e) {
         container.innerHTML = `<div class="flex items-center justify-center h-full">
-            <div class="text-alert-red font-bold text-sm">Failed to load: ${escHtml(e.message)}</div>
+            <div class="text-danger-500 font-bold text-sm">Failed to load: ${escHtml(e.message)}</div>
         </div>`;
     }
 }
@@ -103,10 +103,10 @@ function renderDashboard(container, domains) {
                 <div class="flex items-center gap-2">
                     ${(counts.critical || 0) + (counts.expired || 0) > 0 ? `
                     <button id="ssl-copy-btn"
-                        class="flex items-center gap-1.5 px-3 h-8 rounded-lg
-                               bg-alert-red/10 text-alert-red border border-alert-red/20
-                               text-[10px] font-bold uppercase tracking-widest
-                               hover:bg-alert-red/20 transition-colors">
+                        class="flex items-center gap-1.5 px-3 h-8 rounded
+                               bg-danger-50 text-danger-500 border border-danger-75
+                               text-xs font-bold uppercase tracking-widest
+                               hover:bg-danger-75 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2.5">
                             <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
@@ -115,22 +115,14 @@ function renderDashboard(container, domains) {
                         </svg>
                         Copy Alert
                     </button>` : ''}
-                    <button id="ssl-add-btn"
-                        class="flex items-center gap-1.5 px-3 h-8 rounded-lg
-                               bg-primary-light dark:bg-primary-dark text-white
-                               text-[10px] font-bold uppercase tracking-widest
-                               hover:opacity-90 transition-opacity">
+                    <button id="ssl-add-btn" class="btn-primary flex items-center gap-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="3">
                             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                         </svg>
                         Add
                     </button>
-                    <button id="ssl-refresh-btn"
-                        class="flex items-center gap-1.5 px-3 h-8 rounded-lg
-                               bg-surface-hover-light dark:bg-surface-hover-dark
-                               text-[10px] font-bold uppercase tracking-widest text-muted
-                               hover:text-text-light dark:hover:text-text-dark transition-colors">
+                    <button id="ssl-refresh-btn" class="btn-outline flex items-center gap-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2.5">
                             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -146,16 +138,16 @@ function renderDashboard(container, domains) {
             <div class="pane overflow-hidden">
                 <table class="w-full text-[11px]">
                     <thead>
-                        <tr class="border-b border-surface-hover-light dark:border-surface-hover-dark text-[9px] font-bold uppercase tracking-widest text-muted">
+                        <tr class="border-b border-neutral-200 text-[11px] font-bold uppercase tracking-widest text-muted">
                             <th class="text-left px-4 py-2.5 w-8">#</th>
                             <th class="text-left px-4 py-2.5">Domain</th>
-                            <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light dark:hover:text-text-dark select-none" id="sort-status">
+                            <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light select-none" id="sort-status">
                                 Status${sortIcon('status')}
                             </th>
-                            <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light dark:hover:text-text-dark select-none" id="sort-days">
+                            <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light select-none" id="sort-days">
                                 Days Left${sortIcon('days')}
                             </th>
-                            <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light dark:hover:text-text-dark select-none" id="sort-expires">
+                            <th class="text-left px-4 py-2.5 cursor-pointer hover:text-text-light select-none" id="sort-expires">
                                 Expires${sortIcon('expires')}
                             </th>
                             <th class="text-left px-4 py-2.5">Issuer</th>
@@ -242,12 +234,12 @@ function renderDashboard(container, domains) {
 // ---------------------------------------------------------------------------
 
 const STATUS_CFG = {
-    valid:   { label: 'Valid',    color: 'text-alert-green',  bg: 'bg-alert-green/10'  },
-    warning: { label: 'Expiring', color: 'text-alert-orange', bg: 'bg-alert-orange/10' },
-    critical:{ label: 'Critical', color: 'text-alert-red',    bg: 'bg-alert-red/10'    },
-    expired: { label: 'Expired',  color: 'text-alert-red',    bg: 'bg-alert-red/10'    },
-    error:   { label: 'Error',    color: 'text-muted',        bg: 'bg-surface-hover-light dark:bg-surface-hover-dark' },
-    unknown: { label: 'Pending',  color: 'text-muted',        bg: 'bg-surface-hover-light dark:bg-surface-hover-dark' },
+    valid:   { label: 'Valid',    color: 'text-success-500', bg: 'bg-success-50'  },
+    warning: { label: 'Expiring', color: 'text-warning-500', bg: 'bg-warning-50'  },
+    critical:{ label: 'Critical', color: 'text-danger-500',  bg: 'bg-danger-50'   },
+    expired: { label: 'Expired',  color: 'text-danger-500',  bg: 'bg-danger-50'   },
+    error:   { label: 'Error',    color: 'text-muted',       bg: 'bg-neutral-100' },
+    unknown: { label: 'Pending',  color: 'text-muted',       bg: 'bg-neutral-100' },
 };
 
 function tableRow(d, i) {
@@ -261,23 +253,22 @@ function tableRow(d, i) {
     if (d.days_remaining === null) {
         daysCell = '<span class="text-muted">—</span>';
     } else if (d.days_remaining < 0) {
-        daysCell = `<span class="font-bold text-alert-red">${Math.abs(d.days_remaining)}d overdue</span>`;
+        daysCell = `<span class="font-bold text-danger-500">${Math.abs(d.days_remaining)}d overdue</span>`;
     } else {
         daysCell = `<span class="font-bold font-mono ${cfg.color}">${d.days_remaining}d</span>`;
     }
 
-    const rowBg = i % 2 === 0 ? '' : 'bg-surface-hover-light/30 dark:bg-surface-hover-dark/30';
+    const rowBg = i % 2 === 0 ? '' : 'bg-neutral-75';
 
     return `
-        <tr class="border-b border-surface-hover-light dark:border-surface-hover-dark
-                   hover:bg-primary-light/5 dark:hover:bg-primary-dark/5 transition-colors ${rowBg}">
-            <td class="px-4 py-2 text-muted font-mono text-[9px]">${i + 1}</td>
+        <tr class="border-b border-neutral-200 hover:bg-primary-50 transition-colors ${rowBg}">
+            <td class="px-4 py-2 text-muted font-mono text-[11px]">${i + 1}</td>
             <td class="px-4 py-2">
                 <span class="font-mono font-medium">${escHtml(d.domain)}${escHtml(portStr)}</span>
-                ${d.error ? `<div class="text-[9px] text-alert-red mt-0.5 truncate max-w-[220px]">${escHtml(d.error)}</div>` : ''}
+                ${d.error ? `<div class="text-[11px] text-danger-500 mt-0.5 truncate max-w-[220px]">${escHtml(d.error)}</div>` : ''}
             </td>
             <td class="px-4 py-2">
-                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${cfg.bg} ${cfg.color}">
+                <span class="px-1.5 py-0.5 rounded text-[11px] font-bold ${cfg.bg} ${cfg.color}">
                     ${cfg.label}
                 </span>
             </td>
@@ -285,8 +276,8 @@ function tableRow(d, i) {
             <td class="px-4 py-2 text-muted font-mono">${expiryStr}</td>
             <td class="px-4 py-2 text-muted max-w-[140px] truncate">${escHtml(d.issuer || '—')}</td>
             <td class="px-4 py-2 text-right">
-                <button class="ssl-delete-btn p-1 rounded text-muted/40
-                               hover:text-alert-red hover:bg-alert-red/10 transition-all"
+                <button class="ssl-delete-btn p-1 rounded text-neutral-400
+                               hover:text-danger-500 hover:bg-danger-50 transition-all"
                     data-domain="${escAttr(d.domain)}" data-port="${d.port}" title="Remove">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2">
@@ -300,32 +291,31 @@ function tableRow(d, i) {
 
 function summaryBadges(counts) {
     const items = [
-        { key: 'valid',    label: 'Valid',    cls: 'bg-alert-green/10  text-alert-green'  },
-        { key: 'warning',  label: 'Expiring', cls: 'bg-alert-orange/10 text-alert-orange' },
-        { key: 'critical', label: 'Critical', cls: 'bg-alert-red/10    text-alert-red'    },
-        { key: 'expired',  label: 'Expired',  cls: 'bg-alert-red/10    text-alert-red'    },
-        { key: 'error',    label: 'Error',    cls: 'bg-surface-hover-light dark:bg-surface-hover-dark text-muted' },
-        { key: 'unknown',  label: 'Pending',  cls: 'bg-surface-hover-light dark:bg-surface-hover-dark text-muted' },
+        { key: 'valid',    label: 'Valid',    cls: 'bg-success-50 text-success-500'   },
+        { key: 'warning',  label: 'Expiring', cls: 'bg-warning-50 text-warning-500'   },
+        { key: 'critical', label: 'Critical', cls: 'bg-danger-50  text-danger-500'    },
+        { key: 'expired',  label: 'Expired',  cls: 'bg-danger-50  text-danger-500'    },
+        { key: 'error',    label: 'Error',    cls: 'bg-neutral-100 text-muted'        },
+        { key: 'unknown',  label: 'Pending',  cls: 'bg-neutral-100 text-muted'        },
     ].filter(i => counts[i.key] > 0);
 
     if (!items.length) return '';
     return `<div class="flex items-center gap-1.5 flex-wrap">
-        ${items.map(i => `<span class="px-2 py-0.5 rounded-full text-[9px] font-bold ${i.cls}">${counts[i.key]} ${i.label}</span>`).join('')}
+        ${items.map(i => `<span class="px-2 py-0.5 rounded text-[11px] font-bold ${i.cls}">${counts[i.key]} ${i.label}</span>`).join('')}
     </div>`;
 }
 
 function showAddModal(container) {
     const overlay = document.createElement('div');
-    overlay.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6';
+    overlay.className = 'fixed inset-0 glass z-50 flex items-center justify-center p-6';
     overlay.innerHTML = `
-        <div class="pane p-8 max-w-md w-full">
+        <div class="pane p-8 max-w-md w-full" style="box-shadow:var(--shadow-400);">
             <div class="flex items-center justify-between mb-5">
                 <div>
                     <h3 class="text-base font-bold">Add Domains</h3>
-                    <p class="text-[10px] text-muted mt-0.5">SSL checked automatically after adding.</p>
+                    <p class="text-xs text-muted mt-0.5">SSL checked automatically after adding.</p>
                 </div>
-                <button id="ssl-modal-close" class="p-1.5 rounded-lg text-muted
-                    hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-all">
+                <button id="ssl-modal-close" class="modal-close-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2.5">
                         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -334,23 +324,17 @@ function showAddModal(container) {
             </div>
             <div class="flex flex-col gap-3">
                 <div>
-                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest block mb-1.5">
+                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest block mb-1.5">
                         One domain per line · supports domain:port
                     </label>
                     <textarea id="ssl-domain-input" rows="6"
                         class="input-modern w-full resize-none font-mono text-[11px] leading-relaxed"
                         placeholder="example.com&#10;api.company.com&#10;internal.svc.com:8443"></textarea>
                 </div>
-                <div id="ssl-add-feedback" class="hidden text-[10px] font-mono px-3 py-2 rounded-lg"></div>
+                <div id="ssl-add-feedback" class="hidden text-xs font-mono px-3 py-2 rounded"></div>
                 <div class="flex gap-2">
-                    <button id="ssl-modal-cancel"
-                        class="flex-1 h-9 rounded-lg font-bold text-[10px] uppercase tracking-widest text-muted
-                               bg-surface-hover-light dark:bg-surface-hover-dark transition-colors">Cancel</button>
-                    <button id="ssl-modal-save"
-                        class="flex-1 h-9 rounded-lg font-bold text-[10px] uppercase tracking-widest
-                               bg-primary-light dark:bg-primary-dark text-white hover:opacity-90 transition-opacity">
-                        Add &amp; Check
-                    </button>
+                    <button id="ssl-modal-cancel" class="btn-outline flex-1">Cancel</button>
+                    <button id="ssl-modal-save" class="btn-primary flex-1">Add &amp; Check</button>
                 </div>
             </div>
         </div>`;
@@ -385,9 +369,9 @@ function showAddModal(container) {
         }
 
         const ok = added > 0;
-        feedback.className = `text-[10px] font-mono px-3 py-2 rounded-lg ${
-            ok ? 'bg-alert-green/10 text-alert-green border border-alert-green/20'
-               : 'bg-alert-red/10 text-alert-red border border-alert-red/20'}`;
+        feedback.className = `text-xs font-mono px-3 py-2 rounded ${
+            ok ? 'bg-success-50 text-success-500 border border-success-75'
+               : 'bg-danger-50 text-danger-500 border border-danger-75'}`;
         feedback.textContent = (ok ? '✓ ' : '✗ ') + `${added} added${failed ? `, ${failed} failed` : ''}`;
         feedback.classList.remove('hidden');
         btn.disabled = false; btn.textContent = 'Add & Check';
@@ -435,7 +419,7 @@ function escAttr(s) {
 
 function emptyState() {
     return `<div class="pane p-12 flex flex-col items-center justify-center gap-4 text-center">
-        <div class="p-4 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark">
+        <div class="p-4 rounded bg-neutral-100">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted mx-auto">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>

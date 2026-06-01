@@ -13,7 +13,7 @@ export async function renderChaosView(container) {
         <div class="flex flex-col gap-6 h-full max-w-6xl mx-auto px-4">
             ${state.isSimulationMode ? `
             <div class="flex justify-end">
-                <button id="abort-all-btn" class="px-6 h-10 bg-alert-orange hover:bg-red-600 text-white text-xs font-bold uppercase rounded-xl transition-all shadow-lg shadow-alert-orange/20 flex items-center gap-2">
+                <button id="abort-all-btn" class="btn-primary flex items-center gap-2" style="background:#A36701;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
                     Global Restoration
                 </button>
@@ -21,16 +21,16 @@ export async function renderChaosView(container) {
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 ${scenarios.map(s => `
-                    <div class="pane p-8 flex flex-col justify-between group transition-all duration-500 relative overflow-hidden ${s.is_active ? 'border-alert-orange shadow-2xl shadow-alert-orange/10 bg-alert-orange/5' : 'hover:border-primary-light dark:hover:border-primary-dark hover:shadow-xl hover:shadow-primary-light/5'}">
-                        ${s.is_active ? `<div class="absolute top-0 right-0 p-1 bg-alert-orange text-[8px] font-black text-white px-3 tracking-widest animate-pulse">ACTIVE</div>` : ''}
+                    <div class="pane p-8 flex flex-col justify-between group transition-all duration-500 relative overflow-hidden ${s.is_active ? 'border-warning-500 bg-warning-50' : 'hover:border-primary-600'}">
+                        ${s.is_active ? `<div class="absolute top-0 right-0 p-1 bg-warning-500 text-[11px] font-bold text-white px-3 tracking-widest animate-pulse">ACTIVE</div>` : ''}
                         <div>
                             <div class="flex justify-between items-start mb-4">
-                                <h3 class="font-bold text-xl ${s.is_active ? 'text-alert-orange' : 'text-text-light dark:text-text-dark'}">${s.name}</h3>
+                                <h3 class="font-bold text-xl ${s.is_active ? 'text-warning-500' : 'text-text-light'}">${s.name}</h3>
                             </div>
                             <p class="text-sm text-muted mb-10 leading-relaxed font-medium">${s.description}</p>
                         </div>
-                        <button class="chaos-toggle-btn w-full h-12 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all duration-300
-                            ${s.is_active ? 'bg-alert-orange text-white hover:bg-red-600 shadow-lg shadow-alert-orange/20' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-light dark:text-text-dark hover:bg-primary-light hover:text-white dark:hover:bg-primary-dark shadow-sm'}
+                        <button class="chaos-toggle-btn w-full h-12 rounded font-bold uppercase tracking-widest text-xs transition-all duration-300
+                            ${s.is_active ? 'bg-warning-500 text-white hover:bg-warning-700' : 'bg-neutral-100 text-text-light hover:bg-primary-600 hover:text-white'}
                         " data-id="${s.id}" data-active="${s.is_active}">
                             ${s.is_active ? 'Abort Simulation' : 'Trigger Scenario'}
                         </button>
@@ -38,25 +38,25 @@ export async function renderChaosView(container) {
                 `).join('')}
             </div>
 
-            <div class="mt-20 border-t border-surface-hover-light dark:border-surface-hover-dark pt-10">
-                <h3 class="text-2xl font-bold text-text-light dark:text-text-dark mb-2 tracking-tight">Manual Alert Injection</h3>
+            <div class="mt-20 border-t border-neutral-200 pt-10">
+                <h3 class="text-2xl font-bold text-text-light mb-2 tracking-tight">Manual Alert Injection</h3>
                 <p class="text-muted text-sm mb-8 font-medium">Simulate incoming webhooks from external monitoring sources (Alertmanager, Prometheus) to verify RCA pipelines.</p>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="pane p-6 bg-surface-light/30 dark:bg-surface-dark/30 border-dashed">
+                    <div class="pane p-6 bg-neutral-75 border-dashed">
                         <h4 class="font-bold mb-2">💻 Local Machine</h4>
                         <p class="text-xs text-muted mb-6">Tests diagnostics on the local host (psutil provider).</p>
-                        <button class="fire-test-btn w-full h-10 bg-primary-light dark:bg-primary-dark text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-transform" data-type="local">Fire Local Alert</button>
+                        <button class="fire-test-btn btn-primary w-full" data-type="local">Fire Local Alert</button>
                     </div>
-                    <div class="pane p-6 bg-surface-light/30 dark:bg-surface-dark/30 border-dashed">
+                    <div class="pane p-6 bg-neutral-75 border-dashed">
                         <h4 class="font-bold mb-2">🖥️ Virtual Machine</h4>
                         <p class="text-xs text-muted mb-6">Tests Prometheus VM metrics collection logic.</p>
-                        <button class="fire-test-btn w-full h-10 bg-primary-light dark:bg-primary-dark text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-transform" data-type="vm">Fire VM Alert</button>
+                        <button class="fire-test-btn btn-primary w-full" data-type="vm">Fire VM Alert</button>
                     </div>
-                    <div class="pane p-6 bg-surface-light/30 dark:bg-surface-dark/30 border-dashed">
+                    <div class="pane p-6 bg-neutral-75 border-dashed">
                         <h4 class="font-bold mb-2">☸️ Kubernetes</h4>
                         <p class="text-xs text-muted mb-6">Tests Pod logs, events, and K8s provider state.</p>
-                        <button class="fire-test-btn w-full h-10 bg-primary-light dark:bg-primary-dark text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-transform" data-type="k8s">Fire K8s Alert</button>
+                        <button class="fire-test-btn btn-primary w-full" data-type="k8s">Fire K8s Alert</button>
                     </div>
                 </div>
             </div>
@@ -67,7 +67,7 @@ export async function renderChaosView(container) {
         btn.onclick = async () => {
             const type = btn.dataset.type;
             let payload = {};
-            
+
             if (type === 'local') {
                 payload = {
                     alertname: 'LocalDiskFull',
@@ -91,11 +91,11 @@ export async function renderChaosView(container) {
                     description: 'Simulated crashloop event for K8s pod'
                 };
             }
-            
+
             const btnText = btn.innerText;
             btn.innerText = 'FIRING...';
             btn.disabled = true;
-            
+
             try {
                 const { triggerAlert } = await import('../utils/api');
                 await triggerAlert(payload);
@@ -111,18 +111,18 @@ export async function renderChaosView(container) {
         };
     });
 
-    // Existing Chaos logic
+    // Chaos toggle logic
     container.querySelectorAll('.chaos-toggle-btn').forEach(btn => {
         btn.onclick = async () => {
             const id = btn.dataset.id;
             const active = btn.dataset.active === 'true';
-            
+
             await fetch(`${API_BASE}/chaos/trigger`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id, active: !active })
             });
-            
+
             renderChaosView(container);
             updateHealth();
         };

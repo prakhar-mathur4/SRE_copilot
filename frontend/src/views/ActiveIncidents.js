@@ -33,19 +33,19 @@ function resolveFireTime(inc) {
 }
 
 function renderContext(raw) {
-    if (!raw || raw === 'unknown') return '<span class="text-muted/50 italic">unknown</span>';
+    if (!raw || raw === 'unknown') return '<span class="text-neutral-400 italic">unknown</span>';
     const idx = raw.indexOf(':');
     if (idx === -1) return `<span>${raw}</span>`;
     const key = raw.slice(0, idx);
     const val = raw.slice(idx + 1);
-    return `<span class="text-[9px] font-mono text-muted/60 uppercase">${key}:</span><span class="ml-1">${val}</span>`;
+    return `<span class="text-[11px] font-mono text-neutral-400 uppercase">${key}:</span><span class="ml-1">${val}</span>`;
 }
 
-function severityColor(sev) {
+function severityBadgeClass(sev) {
     switch ((sev || '').toLowerCase()) {
-        case 'critical': case 'page': return 'bg-red-500/10 text-red-400 border-red-500/30';
-        case 'warning':  return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
-        default:         return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        case 'critical': case 'page': return 'badge badge-sev1';
+        case 'warning':  return 'badge badge-sev2';
+        default:         return 'badge badge-sev3';
     }
 }
 
@@ -58,11 +58,11 @@ function openQuickView(inc) {
 
     const renderKV = (obj) => {
         const entries = Object.entries(obj);
-        if (entries.length === 0) return '<span class="text-muted/50 italic text-xs">none</span>';
+        if (entries.length === 0) return '<span class="text-neutral-400 italic text-xs">none</span>';
         return entries.map(([k, v]) => `
-            <div class="flex gap-3 py-1.5 border-b border-surface-hover-light/50 dark:border-surface-hover-dark/50 last:border-0 min-w-0">
-                <span class="text-[10px] font-mono font-bold text-primary-light dark:text-primary-dark shrink-0 w-36 truncate" title="${k}">${k}</span>
-                <span class="text-[11px] text-text-light dark:text-text-dark break-all">${v}</span>
+            <div class="flex gap-3 py-1.5 border-b border-neutral-200 last:border-0 min-w-0">
+                <span class="text-xs font-mono font-bold text-primary-600 shrink-0 w-36 truncate" title="${k}">${k}</span>
+                <span class="text-[11px] text-text-light break-all">${v}</span>
             </div>`).join('');
     };
 
@@ -74,24 +74,24 @@ function openQuickView(inc) {
 
     const modal = document.createElement('div');
     modal.id = 'quickview-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center glass p-4';
     modal.innerHTML = `
-        <div class="pane w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+        <div class="pane w-full max-w-2xl max-h-[85vh] flex flex-col" style="box-shadow:var(--shadow-400);">
 
             <!-- Header -->
-            <div class="flex items-start justify-between gap-4 p-6 border-b border-surface-hover-light dark:border-surface-hover-dark shrink-0">
+            <div class="flex items-start justify-between gap-4 p-6 border-b border-neutral-200 shrink-0">
                 <div class="flex flex-col gap-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-[9px] font-bold border px-2 py-0.5 rounded-full uppercase tracking-widest ${severityColor(inc.severity)}">${inc.severity}</span>
-                        <span class="text-[9px] font-mono text-muted">${inc.incident_id.slice(0, 16)}…</span>
+                        <span class="${severityBadgeClass(inc.severity)}">${inc.severity}</span>
+                        <span class="text-[11px] font-mono text-muted">${inc.incident_id.slice(0, 16)}…</span>
                     </div>
-                    <h2 class="text-lg font-bold text-text-light dark:text-text-dark truncate">${inc.alert_name}</h2>
-                    <div class="flex gap-4 text-[10px] text-muted mt-0.5 flex-wrap">
-                        <span>Started: <span class="text-text-light dark:text-text-dark">${relativeTime(resolveFireTime(inc))}</span></span>
-                        <span>Updated: <span class="text-text-light dark:text-text-dark">${relativeTime(inc.last_updated)}</span></span>
-                        <span>Events: <span class="text-text-light dark:text-text-dark">${inc.event_count}</span></span>
+                    <h2 class="text-lg font-bold text-text-light truncate">${inc.alert_name}</h2>
+                    <div class="flex gap-4 text-xs text-muted mt-0.5 flex-wrap">
+                        <span>Started: <span class="text-text-light">${relativeTime(resolveFireTime(inc))}</span></span>
+                        <span>Updated: <span class="text-text-light">${relativeTime(inc.last_updated)}</span></span>
+                        <span>Events: <span class="text-text-light">${inc.event_count}</span></span>
                         ${inc.dedup_count > 0
-                            ? `<span class="flex items-center gap-1">Storm Protection: <span class="ml-1 px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold">${inc.dedup_count} suppressed</span></span>`
+                            ? `<span class="flex items-center gap-1">Storm Protection: <span class="ml-1 px-1.5 py-0.5 bg-warning-50 text-warning-500 border border-warning-75 rounded text-[11px] font-bold">${inc.dedup_count} suppressed</span></span>`
                             : ''}
                     </div>
                 </div>
@@ -101,12 +101,12 @@ function openQuickView(inc) {
             </div>
 
             <!-- Pipeline status strip -->
-            <div class="flex gap-0 shrink-0 border-b border-surface-hover-light dark:border-surface-hover-dark">
+            <div class="flex gap-0 shrink-0 border-b border-neutral-200">
                 ${pipelineSteps.map(s => `
-                    <div class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[9px] font-bold uppercase tracking-widest ${s.done ? 'text-alert-green' : 'text-muted/50'}">
-                        <span class="w-1.5 h-1.5 rounded-full ${s.done ? 'bg-alert-green' : 'bg-muted/30'}"></span>
+                    <div class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-bold uppercase tracking-widest ${s.done ? 'text-success-500' : 'text-neutral-400'}">
+                        <span class="w-1.5 h-1.5 rounded-full ${s.done ? 'bg-success-500' : 'bg-neutral-300'}"></span>
                         ${s.label}
-                    </div>`).join('<div class="w-px bg-surface-hover-light dark:bg-surface-hover-dark"></div>')}
+                    </div>`).join('<div class="w-px bg-neutral-200"></div>')}
             </div>
 
             <!-- Scrollable body -->
@@ -114,16 +114,16 @@ function openQuickView(inc) {
 
                 <!-- Labels -->
                 <div>
-                    <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-3">Labels (${Object.keys(labels).length})</div>
-                    <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">
+                    <div class="text-[11px] font-bold uppercase tracking-widest text-muted mb-3">Labels (${Object.keys(labels).length})</div>
+                    <div class="bg-neutral-100 rounded p-4">
                         ${renderKV(labels)}
                     </div>
                 </div>
 
                 <!-- Annotations -->
                 <div>
-                    <div class="text-[9px] font-bold uppercase tracking-widest text-muted mb-3">Annotations (${Object.keys(annotations).length})</div>
-                    <div class="bg-surface-hover-light/30 dark:bg-surface-hover-dark/30 rounded-lg p-4">
+                    <div class="text-[11px] font-bold uppercase tracking-widest text-muted mb-3">Annotations (${Object.keys(annotations).length})</div>
+                    <div class="bg-neutral-100 rounded p-4">
                         ${renderKV(annotations)}
                     </div>
                 </div>
@@ -131,9 +131,9 @@ function openQuickView(inc) {
             </div>
 
             <!-- Footer -->
-            <div class="shrink-0 px-6 py-4 border-t border-surface-hover-light dark:border-surface-hover-dark flex justify-between items-center">
-                <span class="text-[10px] text-muted">Click the row to open the full Control Room view</span>
-                <button id="qv-open-cr" class="px-4 py-2 bg-primary-light dark:bg-primary-dark text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity">Open Control Room →</button>
+            <div class="shrink-0 px-6 py-4 border-t border-neutral-200 flex justify-between items-center">
+                <span class="text-xs text-muted">Click the row to open the full Control Room view</span>
+                <button id="qv-open-cr" class="btn-primary">Open Control Room →</button>
             </div>
         </div>
     `;
@@ -190,9 +190,9 @@ export function renderActiveIncidentsView(container) {
     container.innerHTML = `
         <div class="h-full min-h-0 pane flex flex-col">
             <div class="pane-header flex items-center justify-between">
-                <span>Firing Alerts <span class="text-text-light dark:text-text-dark font-black">${active.length}</span></span>
-                <span class="flex items-center gap-1.5 ${active.length > 0 ? 'text-alert-red' : 'text-alert-green'} text-[9px] font-black">
-                    <span class="w-1.5 h-1.5 rounded-full ${active.length > 0 ? 'bg-alert-red animate-pulse' : 'bg-alert-green'}"></span>
+                <span>Firing Alerts <span class="text-text-light font-bold">${active.length}</span></span>
+                <span class="flex items-center gap-1.5 ${active.length > 0 ? 'text-danger-500' : 'text-success-500'} text-[11px] font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full ${active.length > 0 ? 'bg-danger-500 animate-pulse' : 'bg-success-500'}"></span>
                     ${active.length > 0 ? 'LIVE' : 'HEALTHY'}
                 </span>
             </div>
@@ -201,13 +201,13 @@ export function renderActiveIncidentsView(container) {
                     <thead class="table-header">
                         <tr>
                             <th class="p-4">ID</th>
-                            <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-sev">Severity${sortIcon('severity')}</th>
-                            <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-name">Alert Name${sortIcon('name')}</th>
+                            <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-sev">Severity${sortIcon('severity')}</th>
+                            <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-name">Alert Name${sortIcon('name')}</th>
                             <th class="p-4">Context</th>
-                            <th class="p-4 cursor-pointer select-none hover:text-text-light dark:hover:text-text-dark transition-colors" id="sort-time">Time${sortIcon('time')}</th>
+                            <th class="p-4 cursor-pointer select-none hover:text-text-light transition-colors" id="sort-time">Time${sortIcon('time')}</th>
                             <th class="p-4 text-center" title="Duplicate firings dropped by storm protection">Suppressed</th>
                             <th class="p-4 text-right normal-case font-normal">
-                                <select id="incident-context-filter" class="bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-md h-7 px-3 text-[10px] text-muted focus:ring-1 ring-primary-light">
+                                <select id="incident-context-filter" class="bg-neutral-75 border border-neutral-200 rounded h-7 px-3 text-xs text-muted focus:ring-1 ring-primary-600">
                                     <option value="all">All Contexts</option>
                                     ${uniqueContexts.map(ctx => `<option value="${ctx}" ${state.activeIncidentsFilter === ctx ? 'selected' : ''}>${ctx}</option>`).join('')}
                                 </select>
@@ -215,7 +215,7 @@ export function renderActiveIncidentsView(container) {
                         </tr>
                     </thead>
                     <tbody id="incidents-body">
-                        ${active.length === 0 ? `<tr><td colspan="7" class="empty-state text-primary-light dark:text-primary-dark">All Clear — No Active Incidents</td></tr>` : ''}
+                        ${active.length === 0 ? `<tr><td colspan="7" class="empty-state text-primary-600">All Clear — No Active Incidents</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>
@@ -225,30 +225,30 @@ export function renderActiveIncidentsView(container) {
     const body = container.querySelector('#incidents-body');
     active.forEach(inc => {
         const row = document.createElement('tr');
-        row.className = 'border-b border-surface-hover-light dark:border-surface-hover-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark/40 cursor-pointer transition-colors text-[13px]';
+        row.className = 'border-b border-neutral-200 hover:bg-neutral-75 cursor-pointer transition-colors text-[13px]';
         row.innerHTML = `
             <td class="p-4 font-mono text-[11px] text-muted">${inc.incident_id.slice(0, 8)}</td>
-            <td class="p-4"><span class="badge badge-sev${inc.severity.toLowerCase() === 'critical' ? '1' : inc.severity.toLowerCase() === 'warning' ? '2' : '3'}">${inc.severity}</span></td>
-            <td class="p-4 font-bold text-text-light dark:text-text-dark">${inc.alert_name}</td>
+            <td class="p-4"><span class="${severityBadgeClass(inc.severity)}">${inc.severity}</span></td>
+            <td class="p-4 font-bold text-text-light">${inc.alert_name}</td>
             <td class="p-4 font-medium text-muted">${renderContext(inc.context)}</td>
             <td class="p-4 text-muted text-[11px]" title="${new Date(resolveFireTime(inc).endsWith('Z') ? resolveFireTime(inc) : resolveFireTime(inc) + 'Z').toLocaleString()}">${relativeTime(resolveFireTime(inc))}</td>
             <td class="p-4 text-center">
                 ${inc.dedup_count > 0
-                    ? `<span class="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 rounded-full text-[9px] font-bold">${inc.dedup_count}x</span>`
-                    : '<span class="text-muted/40 text-[10px]">—</span>'}
+                    ? `<span class="px-2 py-0.5 bg-warning-50 text-warning-500 border border-warning-75 rounded-full text-[11px] font-bold">${inc.dedup_count}x</span>`
+                    : '<span class="text-neutral-400 text-xs">—</span>'}
             </td>
             <td class="p-4 text-center">
-                <button class="quickview-btn px-3 py-1 bg-surface-hover-light dark:bg-surface-hover-dark hover:bg-primary-light/10 dark:hover:bg-primary-dark/20 border border-surface-hover-light dark:border-surface-hover-dark text-text-light dark:text-text-dark text-[9px] font-bold uppercase rounded transition-colors" data-id="${inc.incident_id}">View</button>
+                <button class="quickview-btn btn-outline" style="height:28px; padding:0 10px; font-size:11px;" data-id="${inc.incident_id}">View</button>
             </td>
         `;
-        
+
         // Navigation logic for the row (excluding the resolve button)
         row.onclick = (e) => {
             if (!e.target.closest('.resolve-btn')) {
                 updateState({ view: 'control', selectedIncidentId: inc.incident_id });
             }
         };
-        
+
         body.appendChild(row);
     });
 

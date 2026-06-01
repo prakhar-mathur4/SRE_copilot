@@ -24,7 +24,7 @@
 
 ## 🟠 High — Wrong Design Tokens
 
-- [ ] **#4 — Off-system severity colors across all views**
+- [x] **#4 — Off-system severity colors across all views**
   - Affects: `Dashboard.js`, `ActiveIncidents.js`, `ControlRoom.js`, `Archive.js`, `Rules.js`
   - Replace raw Tailwind colors with IQM semantic tokens:
 
@@ -43,12 +43,12 @@
   | `bg-amber-500/10` | Warning-50 | `#FFF3DE` |
   | `border-amber-500/20` | Warning-75 | `#F7D8A3` |
 
-- [ ] **#5 — Opacity-based color syntax not in IQM system**
+- [x] **#5 — Opacity-based color syntax not in IQM system**
   - Affects: All views — `bg-black/20`, `bg-black/30`, `border-white/5`, `bg-primary-light/10`, `bg-surface-hover-dark/40` etc.
   - IQM uses flat palette tokens only, never Tailwind opacity modifiers for semantic color
   - Fix: Replace each with the nearest IQM `-50` or `-75` shade
 
-- [ ] **#6 — `font-black` (weight 900) not in IQM type scale**
+- [x] **#6 — `font-black` (weight 900) not in IQM type scale**
   - Affects: `Dashboard.js` (KPI numbers), `Rules.js` (stat numbers), `ActiveIncidents.js` (count)
   - IQM only defines: Regular (400), Demi (600), Bold (700)
   - Fix: Replace all `font-black` → `font-bold`
@@ -57,7 +57,7 @@
 
 ## 🟡 Medium — Spec Violations
 
-- [ ] **#7 — Border radius inconsistency**
+- [x] **#7 — Border radius inconsistency**
   - IQM standard: `borderRadius-4` = 4px for all components
   - Fix the following violations across all views:
 
@@ -69,13 +69,13 @@
   | `rounded-full` on badge chips | `rounded` (4px) | Severity badges in ActiveIncidents, ControlRoom, QuickView modal |
   | Note: `rounded-full` is valid only for pill-style count badges (runbook count, dedup count) | | |
 
-- [ ] **#8 — Text sizes below IQM 12px label minimum**
+- [x] **#8 — Text sizes below IQM 12px label minimum**
   - IQM `Label-12` is the minimum label size. Current violations:
   - `text-[9px]` → raise to `text-[11px]` minimum (used in: pane-header labels, KPI sublabels, table column headers, badge text, timeline timestamps)
   - `text-[10px]` → raise to `text-xs` = 12px (used in: activity feed, quickview metadata, filter labels, sort icons)
   - Affects: `Dashboard.js`, `ActiveIncidents.js`, `ControlRoom.js`, `Archive.js`, `Rules.js`, `SSL.js`
 
-- [ ] **#9 — Buttons not following IQM spec**
+- [x] **#9 — Buttons not following IQM spec**
   - IQM button spec: height 34px (Medium), border-radius 2px, use `.btn-primary` or `.btn-outline` classes
   - Violations to fix:
 
@@ -92,17 +92,17 @@
   - IQM Horizontal Tabs spec: height 34px (Medium), 2px bottom border in `Primary-600` (#134AC1) for active, `text-muted` + transparent border for inactive, padding 12px outer / 4px inner
   - Fix: Rewrite tab indicator logic in `ControlRoom.js` using IQM tokens
 
-- [ ] **#11 — Modal overlay inconsistency**
+- [x] **#11 — Modal overlay inconsistency**
   - Affects: `ActiveIncidents.js` quickview modal — `bg-black/60 backdrop-blur-sm`
   - backdrop-blur removed from new design system
   - Fix: Replace with `.glass` class (`background:rgba(0,0,0,0.4)`) consistent with `Header.js` diagnostic modal
 
-- [ ] **#12 — KPI card gradient hover overlays**
+- [x] **#12 — KPI card gradient hover overlays**
   - Affects: `Dashboard.js` — `bg-gradient-to-br from-primary-light/10 to-transparent` on hover
   - IQM uses flat `Primary-75` (`#E2EBFF`) for hover states, no gradients in card backgrounds
   - Fix: Replace gradient overlays with flat `hover:bg-primary-75` or remove
 
-- [ ] **#13 — KPI card left-border accent colors**
+- [x] **#13 — KPI card left-border accent colors**
   - Affects: `Dashboard.js` — `border-l-red-500/50`, `border-l-yellow-500/50`, `border-l-blue-500/50`
   - Fix: Replace with IQM semantic colors → `border-danger-500`, `border-warning-500`, `border-info-500`
 
@@ -122,17 +122,17 @@
   - Currently applied to: KPI card labels, table column headers, loading messages, nav tooltip titles, badge text, pane-header — creates visual noise
   - Fix: Keep uppercase only for `pane-header` labels and secondary metadata. Remove from primary content labels, KPI titles, button text
 
-- [ ] **#16 — Loading states inconsistent styling**
+- [x] **#16 — Loading states inconsistent styling**
   - `ControlRoom.js`: `animate-pulse font-mono text-primary-light` → use `color: #666666` (Neutral-500), 13px body
   - `Rules.js`: `animate-pulse font-heading text-lg uppercase` → replace with neutral body text loading state
   - Fix: Standardize all loading states to: centered spinner (existing IQM spinner from `index.html`) + 12px Neutral-500 label below
 
-- [ ] **#17 — Elevation tokens not used**
+- [x] **#17 — Elevation tokens not used**
   - IQM defines `--shadow-100` through `--shadow-400` in `style.css`
   - Current code uses Tailwind `shadow-2xl`, `shadow-lg` instead
   - Fix: Replace `shadow-2xl` (modals) → `var(--shadow-400)`, `shadow-lg` (cards) → `var(--shadow-300)`
 
-- [ ] **#18 — Dead `dark:` variant classes throughout all views**
+- [x] **#18 — Dead `dark:` variant classes throughout all views**
   - Every view file contains dead `dark:bg-*`, `dark:text-*`, `dark:border-*`, `dark:hover:*` variants
   - Dark mode is disabled — these classes never activate
   - Fix: Remove all `dark:` prefixed classes from all view files (low risk, reduces noise)

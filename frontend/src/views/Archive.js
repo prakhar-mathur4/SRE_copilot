@@ -36,15 +36,13 @@ function formatDate(isoString) {
     return new Date(isoString).toLocaleDateString('en-CA'); // YYYY-MM-DD everywhere
 }
 
-// Renders "key: value" context string with dim key label.
-// Mirrors the same helper in ActiveIncidents.js.
 function renderContext(raw) {
     if (!raw || raw === 'unknown') return '<span class="opacity-40 italic">unknown</span>';
     const idx = raw.indexOf(':');
     if (idx === -1) return `<span>${escapeHtml(raw)}</span>`;
     const key = raw.slice(0, idx);
     const val = raw.slice(idx + 1);
-    return `<span class="opacity-40 text-[9px] uppercase">${escapeHtml(key)}:</span><span class="ml-1">${escapeHtml(val)}</span>`;
+    return `<span class="opacity-40 text-[11px] uppercase">${escapeHtml(key)}:</span><span class="ml-1">${escapeHtml(val)}</span>`;
 }
 
 function sortIncidents(incidents, sortBy) {
@@ -56,7 +54,6 @@ function sortIncidents(incidents, sortBy) {
                 const rankA = SEV_RANK[a.severity.toLowerCase()] ?? 5;
                 const rankB = SEV_RANK[b.severity.toLowerCase()] ?? 5;
                 if (rankA !== rankB) return rankA - rankB;
-                // secondary: newest first
                 return new Date(b.last_updated) - new Date(a.last_updated);
             }
             case 'dur_desc': {
@@ -98,23 +95,23 @@ export function renderArchiveView(container) {
     const paginated = resolved.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
     const countLabel = isFiltered
-        ? `<span class="text-primary-light dark:text-primary-dark font-black">${totalFiltered}</span> <span class="opacity-40 font-normal text-[9px]">of ${allResolved.length}</span>`
-        : `<span class="text-primary-light dark:text-primary-dark font-black">${allResolved.length}</span>`;
+        ? `<span class="text-primary-600 font-bold">${totalFiltered}</span> <span class="opacity-40 font-normal text-[11px]">of ${allResolved.length}</span>`
+        : `<span class="text-primary-600 font-bold">${allResolved.length}</span>`;
 
-    const selectClass = 'bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-lg h-10 px-4 text-sm focus:outline-none focus:ring-2 ring-primary-light/50 text-text-light dark:text-text-dark';
+    const selectClass = 'bg-neutral-75 border border-neutral-200 rounded h-10 px-4 text-sm focus:outline-none focus:ring-2 ring-primary-200 text-text-light';
 
     container.innerHTML = `
         <div class="flex flex-col gap-6 h-full min-h-0">
-            <div class="pane flex flex-col flex-grow min-h-0 shadow-xl">
+            <div class="pane flex flex-col flex-grow min-h-0">
                 <div class="pane-header flex items-center justify-between">
                     <span>Resolved Incidents ${countLabel}</span>
-                    ${isFiltered ? `<button id="archive-clear-filters" class="text-[9px] font-bold uppercase tracking-widest text-primary-light dark:text-primary-dark hover:opacity-70 transition-opacity">Clear Filters ✕</button>` : ''}
+                    ${isFiltered ? `<button id="archive-clear-filters" class="text-[11px] font-bold uppercase tracking-widest text-primary-600 hover:opacity-70 transition-opacity">Clear Filters ✕</button>` : ''}
                 </div>
-                <div class="p-4 border-b border-surface-hover-light dark:border-surface-hover-dark flex flex-wrap gap-3">
+                <div class="p-4 border-b border-neutral-200 flex flex-wrap gap-3">
                     <div class="relative flex-grow min-w-[180px]">
                         <input type="text" id="archive-search" placeholder="Search by name, ID, or context..."
                             value="${escapeHtml(filters.search)}"
-                            class="w-full bg-surface-light dark:bg-surface-dark border border-surface-hover-light dark:border-surface-hover-dark rounded-lg h-10 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 ring-primary-light/50 transition-all text-text-light dark:text-text-dark">
+                            class="w-full bg-neutral-75 border border-neutral-200 rounded h-10 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 ring-primary-200 transition-all text-text-light">
                         <svg class="absolute left-3 top-2.5 opacity-40" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     </div>
                     <select id="archive-sev-filter" class="${selectClass}">
@@ -148,29 +145,29 @@ export function renderArchiveView(container) {
                             : durationMs >= 1000 ? `${Math.floor(durationMs / 1000)}s` : '< 1s';
                         const hasReport = REPORT_SEVERITIES.has(sev);
                         return `
-                        <div class="archive-card border border-surface-hover-light dark:border-surface-hover-dark rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark hover:border-primary-light dark:hover:border-primary-dark cursor-pointer group transition-all duration-200 hover:translate-x-1 hover:shadow-md" data-id="${inc.incident_id}">
+                        <div class="archive-card border border-neutral-200 rounded bg-neutral-75 hover:border-primary-600 cursor-pointer group transition-all duration-200 hover:translate-x-1" data-id="${inc.incident_id}">
                             <div class="p-4 flex items-center justify-between gap-4">
                                 <div class="flex items-center gap-4 min-w-0">
                                     <span class="badge badge-sev${sevBadge} shrink-0">${escapeHtml(inc.severity)}</span>
                                     <div class="min-w-0">
-                                        <h3 class="font-bold text-sm text-text-light dark:text-text-dark truncate">${escapeHtml(inc.alert_name)}</h3>
-                                        <div class="text-[10px] text-text-light dark:text-text-dark opacity-50 uppercase font-bold mt-1 tracking-wider flex items-center gap-2 flex-wrap">
+                                        <h3 class="font-bold text-sm text-text-light truncate">${escapeHtml(inc.alert_name)}</h3>
+                                        <div class="text-xs text-text-light opacity-50 uppercase font-bold mt-1 tracking-wider flex items-center gap-2 flex-wrap">
                                             <span class="font-mono">${inc.incident_id.slice(0, 12)}</span>
                                             <span>•</span>
                                             <span>${renderContext(inc.context)}</span>
                                             <span>•</span>
                                             <span>${formatDate(inc.last_updated)}</span>
                                             <span>•</span>
-                                            <span class="text-primary-light dark:text-primary-dark opacity-100">⏱ ${durationStr}</span>
+                                            <span class="text-primary-600 opacity-100">⏱ ${durationStr}</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     ${hasReport
-                                        ? `<span class="text-[9px] font-bold px-2 py-0.5 bg-alert-green/10 text-alert-green border border-alert-green/20 rounded-full hidden sm:inline">Report</span>`
-                                        : `<span class="text-[9px] font-bold px-2 py-0.5 bg-surface-hover-light dark:bg-surface-dark text-text-light dark:text-text-dark opacity-30 border border-surface-hover-light dark:border-surface-hover-dark rounded-full hidden sm:inline">No Report</span>`}
-                                    <span class="btn-outline h-8 px-3 text-[10px] flex items-center whitespace-nowrap group-hover:border-primary-light dark:group-hover:border-primary-dark transition-colors view-report-btn" data-id="${inc.incident_id}">View →</span>
-                                    <button class="delete-incident-btn h-8 w-8 flex items-center justify-center rounded-lg border border-surface-hover-light dark:border-surface-hover-dark hover:border-alert-red hover:bg-alert-red/10 hover:text-alert-red text-text-light dark:text-text-dark opacity-40 hover:opacity-100 transition-all" data-id="${inc.incident_id}" title="Delete incident">
+                                        ? `<span class="text-[11px] font-bold px-2 py-0.5 bg-success-50 text-success-500 border border-success-75 rounded hidden sm:inline">Report</span>`
+                                        : `<span class="text-[11px] font-bold px-2 py-0.5 bg-neutral-100 text-muted border border-neutral-200 rounded hidden sm:inline opacity-60">No Report</span>`}
+                                    <span class="btn-outline h-8 px-3 text-xs flex items-center whitespace-nowrap group-hover:border-primary-600 transition-colors view-report-btn" data-id="${inc.incident_id}">View →</span>
+                                    <button class="delete-incident-btn h-8 w-8 flex items-center justify-center rounded border border-neutral-200 hover:border-danger-500 hover:bg-danger-50 hover:text-danger-500 text-text-light opacity-40 hover:opacity-100 transition-all" data-id="${inc.incident_id}" title="Delete incident">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                                     </button>
                                 </div>
@@ -179,10 +176,10 @@ export function renderArchiveView(container) {
                     }).join('')}
                 </div>
                 ${totalPages > 1 ? `
-                <div class="flex items-center justify-between px-4 py-3 border-t border-surface-hover-light dark:border-surface-hover-dark flex-shrink-0">
-                    <button id="archive-prev" class="btn-outline h-8 px-4 text-[10px] ${page === 0 ? 'opacity-30 pointer-events-none' : ''}">← Prev</button>
-                    <span class="text-[10px] text-muted">Page <span class="text-text-light dark:text-text-dark font-bold">${page + 1}</span> of ${totalPages}</span>
-                    <button id="archive-next" class="btn-outline h-8 px-4 text-[10px] ${page >= totalPages - 1 ? 'opacity-30 pointer-events-none' : ''}">Next →</button>
+                <div class="flex items-center justify-between px-4 py-3 border-t border-neutral-200 flex-shrink-0">
+                    <button id="archive-prev" class="btn-outline h-8 px-4 text-xs ${page === 0 ? 'opacity-30 pointer-events-none' : ''}">← Prev</button>
+                    <span class="text-xs text-muted">Page <span class="text-text-light font-bold">${page + 1}</span> of ${totalPages}</span>
+                    <button id="archive-next" class="btn-outline h-8 px-4 text-xs ${page >= totalPages - 1 ? 'opacity-30 pointer-events-none' : ''}">Next →</button>
                 </div>` : ''}
             </div>
         </div>
@@ -271,7 +268,6 @@ export function renderArchiveView(container) {
 }
 
 async function showReportModal(incidentId) {
-    // Look up the incident from local state for instant metadata display
     const inc = state.incidents.find(i => i.incident_id === incidentId);
     const sev = inc?.severity?.toLowerCase() || '';
     const sevBadge = (sev === 'critical' || sev === 'page') ? '1' : sev === 'warning' ? '2' : '3';
@@ -283,32 +279,32 @@ async function showReportModal(incidentId) {
     const overlay = document.createElement('div');
     overlay.className = 'fixed inset-0 glass z-50 flex items-center justify-center p-4 md:p-12';
     overlay.innerHTML = `
-        <div class="pane w-full max-w-5xl h-full flex flex-col shadow-2xl border-primary-light/20">
+        <div class="pane w-full max-w-5xl h-full flex flex-col" style="box-shadow:var(--shadow-400);">
             <div class="pane-header flex justify-between items-center gap-4">
                 <div class="flex items-center gap-3 min-w-0">
                     ${inc ? `<span class="badge badge-sev${sevBadge} shrink-0">${escapeHtml(inc.severity)}</span>` : ''}
                     <span class="truncate">${inc ? escapeHtml(inc.alert_name) : 'Post-Mortem Report'}</span>
                 </div>
                 <div class="flex items-center gap-3 shrink-0">
-                    ${inc ? `<span class="text-[9px] font-mono opacity-40 hidden md:inline">${formatDate(inc.last_updated)} · ⏱ ${durationStr}</span>` : ''}
-                    <button id="open-control-room-btn" class="text-[9px] font-bold uppercase tracking-widest text-primary-light dark:text-primary-dark hover:opacity-70 transition-opacity hidden md:inline">Control Room →</button>
+                    ${inc ? `<span class="text-[11px] font-mono opacity-40 hidden md:inline">${formatDate(inc.last_updated)} · ⏱ ${durationStr}</span>` : ''}
+                    <button id="open-control-room-btn" class="text-[11px] font-bold uppercase tracking-widest text-primary-600 hover:opacity-70 transition-opacity hidden md:inline">Control Room →</button>
                     <button id="close-report-modal" class="modal-close-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
             </div>
-            <div class="flex-grow overflow-auto p-8 md:p-16 bg-surface-light dark:bg-surface-dark">
-                <div id="report-content" class="prose dark:prose-invert prose-slate max-w-none prose-headings:font-heading prose-headings:tracking-tight prose-p:text-base prose-p:leading-relaxed">
+            <div class="flex-grow overflow-auto p-8 md:p-16 bg-neutral-0">
+                <div id="report-content" class="prose prose-slate max-w-none prose-headings:font-heading prose-headings:tracking-tight prose-p:text-base prose-p:leading-relaxed">
                     <div class="animate-pulse flex flex-col gap-4">
-                        <div class="h-8 bg-surface-hover-light dark:bg-surface-hover-dark w-1/3 rounded"></div>
-                        <div class="h-4 bg-surface-hover-light dark:bg-surface-hover-dark w-full rounded"></div>
-                        <div class="h-4 bg-surface-hover-light dark:bg-surface-hover-dark w-5/6 rounded"></div>
-                        <div class="h-64 bg-surface-hover-light dark:bg-surface-hover-dark w-full rounded mt-8"></div>
+                        <div class="h-8 bg-neutral-200 w-1/3 rounded"></div>
+                        <div class="h-4 bg-neutral-200 w-full rounded"></div>
+                        <div class="h-4 bg-neutral-200 w-5/6 rounded"></div>
+                        <div class="h-64 bg-neutral-200 w-full rounded mt-8"></div>
                     </div>
                 </div>
             </div>
-            <div class="p-4 border-t border-surface-hover-light dark:border-surface-hover-dark flex justify-between items-center bg-surface-hover-light/5">
-                <button id="open-control-room-btn-footer" class="btn-outline h-10 px-5 text-[10px] md:hidden">Control Room →</button>
+            <div class="p-4 border-t border-neutral-200 flex justify-between items-center">
+                <button id="open-control-room-btn-footer" class="btn-outline h-10 px-5 text-xs md:hidden">Control Room →</button>
                 <div class="flex-grow"></div>
                 <button id="close-report-btn" class="btn-primary h-10 px-8">Close</button>
             </div>
@@ -323,13 +319,10 @@ async function showReportModal(incidentId) {
     const onEscape = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onEscape);
 
-    // Close on backdrop click
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
     overlay.querySelector('#close-report-modal').onclick = close;
     overlay.querySelector('#close-report-btn').onclick = close;
 
-    // Open in Control Room (header + footer buttons)
     const openCR = () => {
         close();
         updateState({ view: 'control', selectedIncidentId: incidentId });
@@ -340,7 +333,7 @@ async function showReportModal(incidentId) {
     const renderReport = (report) => {
         overlay.querySelector('#report-content').innerHTML = report
             ? marked.parse(report)
-            : `<div class="p-16 text-center border-2 border-dashed border-surface-hover-light dark:border-surface-hover-dark rounded-2xl">
+            : `<div class="p-16 text-center border-2 border-dashed border-neutral-200 rounded">
                 <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-4 opacity-20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <h3 class="text-lg font-bold mb-2">No Post-Mortem Report</h3>
                 <p class="opacity-60 text-sm">Reports are generated only for resolved Critical, Page, and Warning incidents.</p>
@@ -360,8 +353,8 @@ async function showReportModal(incidentId) {
         renderReport(data.report);
     } catch (e) {
         overlay.querySelector('#report-content').innerHTML = `
-            <div class="p-16 text-center border-2 border-dashed border-surface-hover-light dark:border-surface-hover-dark rounded-2xl">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-4 opacity-20 text-alert-red"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div class="p-16 text-center border-2 border-dashed border-neutral-200 rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-4 opacity-20 text-danger-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <h3 class="text-lg font-bold mb-2">Unable to Load Report</h3>
                 <p class="opacity-60 text-sm">Could not reach the backend. Check your connection and try again.</p>
             </div>`;

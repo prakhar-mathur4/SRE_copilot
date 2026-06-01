@@ -25,11 +25,8 @@ export async function renderRunbooksView(container) {
     } catch (e) {
         container.innerHTML = `
             <div class="flex flex-col items-center justify-center h-full gap-3">
-                <div class="text-alert-red font-bold text-sm">Failed to load runbooks: ${escHtml(e.message)}</div>
-                <button onclick="location.reload()"
-                    class="px-4 py-2 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark text-[10px] font-bold uppercase tracking-widest">
-                    Retry
-                </button>
+                <div class="text-danger-500 font-bold text-sm">Failed to load runbooks: ${escHtml(e.message)}</div>
+                <button onclick="location.reload()" class="btn-outline">Retry</button>
             </div>`;
     }
 }
@@ -37,7 +34,7 @@ export async function renderRunbooksView(container) {
 function renderUnconfigured(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full gap-6 max-w-md mx-auto text-center px-4">
-            <div class="p-5 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark">
+            <div class="p-5 rounded bg-neutral-100">
                 <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted mx-auto">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -54,11 +51,7 @@ function renderUnconfigured(container) {
                     AI-grounded incident fix suggestions.
                 </p>
             </div>
-            <button id="rb-go-settings"
-                class="px-6 py-2.5 bg-primary-light dark:bg-primary-dark text-white rounded-lg
-                       font-bold text-[11px] uppercase tracking-widest hover:opacity-90 transition-opacity">
-                Configure in Settings →
-            </button>
+            <button id="rb-go-settings" class="btn-primary px-6">Configure in Settings →</button>
         </div>`;
     container.querySelector('#rb-go-settings').onclick = () =>
         import('../utils/state').then(({ updateState }) => updateState({ view: 'settings' }));
@@ -85,11 +78,7 @@ function renderGrid(container, runbooks) {
                         <input id="rb-search" type="text" placeholder="Search runbooks…"
                             class="input-modern pl-9 w-52 h-9 text-[12px]" autocomplete="off" />
                     </div>
-                    <button id="rb-refresh"
-                        class="flex items-center gap-2 px-4 h-9 rounded-lg
-                               bg-surface-hover-light dark:bg-surface-hover-dark
-                               text-[10px] font-bold uppercase tracking-widest
-                               text-muted hover:text-text-light dark:hover:text-text-dark transition-colors">
+                    <button id="rb-refresh" class="btn-outline flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2.5">
                             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -182,11 +171,11 @@ function cardHtml(rb) {
 
     return `
         <div class="rb-card pane p-5 flex flex-col gap-4 cursor-pointer
-                    hover:border-blue-500/30 hover:shadow-xl transition-all group"
+                    hover:border-primary-200 transition-all group"
              data-search="${escAttr((rb.title + ' ' + (rb.excerpt || '')).toLowerCase())}">
             <div class="flex items-start gap-3">
-                <div class="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 flex-shrink-0 mt-0.5
-                            group-hover:bg-blue-500/18 transition-colors">
+                <div class="p-2.5 rounded bg-info-50 text-info-500 flex-shrink-0 mt-0.5
+                            group-hover:bg-info-75 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -196,10 +185,10 @@ function cardHtml(rb) {
                     </svg>
                 </div>
                 <div class="min-w-0 flex-grow">
-                    <h3 class="font-bold text-sm leading-snug group-hover:text-blue-400 transition-colors">
+                    <h3 class="font-bold text-sm leading-snug group-hover:text-primary-600 transition-colors">
                         ${escHtml(rb.title)}
                     </h3>
-                    <div class="flex items-center gap-1.5 mt-1 text-[10px] text-muted font-mono flex-wrap">
+                    <div class="flex items-center gap-1.5 mt-1 text-xs text-muted font-mono flex-wrap">
                         ${rb.author ? `<span>${escHtml(rb.author)}</span>` : ''}
                         ${rb.author && dateStr ? '<span class="opacity-40">·</span>' : ''}
                         ${dateStr ? `<span>${dateStr}</span>` : ''}
@@ -211,11 +200,10 @@ function cardHtml(rb) {
                        ${escHtml(rb.excerpt)}
                    </p>`
                 : '<div class="flex-grow"></div>'}
-            <div class="flex items-center justify-between pt-3
-                        border-t border-surface-hover-light dark:border-surface-hover-dark">
-                <button class="rb-read-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg
-                               bg-blue-500/10 hover:bg-blue-500/20 text-blue-400
-                               text-[10px] font-bold uppercase tracking-widest transition-colors"
+            <div class="flex items-center justify-between pt-3 border-t border-neutral-200">
+                <button class="rb-read-btn flex items-center gap-2 px-3.5 py-1.5 rounded
+                               bg-info-50 hover:bg-info-75 text-info-500
+                               text-xs font-bold uppercase tracking-widest transition-colors"
                     data-id="${escAttr(rb.id)}"
                     data-title="${escAttr(rb.title)}"
                     data-url="${escAttr(rb.url || '')}">
@@ -230,9 +218,9 @@ function cardHtml(rb) {
                 <a href="${escAttr(rb.url)}" target="_blank" rel="noopener noreferrer"
                     onclick="event.stopPropagation()"
                     title="Open in Confluence"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-                           text-[10px] text-muted hover:text-primary-light dark:hover:text-primary-dark
-                           hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-all">
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded
+                           text-xs text-muted hover:text-primary-600
+                           hover:bg-neutral-75 transition-all">
                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>

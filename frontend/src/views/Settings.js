@@ -5,7 +5,7 @@ import { state, notify } from '../utils/state';
 import { fetchSettings, updateEnvSettings, addConnector, deleteConnector, pingConfluence } from '../utils/api';
 
 export async function renderSettingsView(container) {
-    container.innerHTML = '<div class="p-20 text-center animate-pulse font-mono text-primary-light text-xs tracking-widest">SYNCHRONIZING REGISTRY...</div>';
+    container.innerHTML = '<div class="p-20 text-center" style="color:#666666; font-size:13px;">Synchronizing registry...</div>';
 
     try {
         const data = await fetchSettings();
@@ -19,18 +19,18 @@ export async function renderSettingsView(container) {
                     <div class="lg:col-span-8 flex flex-col gap-6">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="text-lg font-bold">Active Connectors (${connectors.length})</h3>
-                            <button id="show-add-modal" class="px-4 py-2 bg-primary-light dark:bg-primary-dark text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary-light/20">+ Add Connector</button>
+                            <button id="show-add-modal" class="btn-primary">+ Add Connector</button>
                         </div>
-                        
+
                         <div class="grid grid-cols-1 gap-4">
                             ${connectors.map(c => `
                                 <div class="pane p-6 flex justify-between items-center group">
                                     <div class="flex items-center gap-4">
-                                        <div class="p-3 rounded-xl ${
-                                            c.type === 'kubernetes' ? 'bg-blue-500/10 text-blue-500' :
-                                            c.type === 'prometheus' ? 'bg-orange-500/10 text-orange-500' :
-                                            c.type === 'alertmanager' ? 'bg-red-500/10 text-red-500' :
-                                            'bg-green-500/10 text-green-500'}">
+                                        <div class="p-3 rounded ${
+                                            c.type === 'kubernetes'   ? 'bg-info-50 text-info-500' :
+                                            c.type === 'prometheus'   ? 'bg-warning-50 text-warning-500' :
+                                            c.type === 'alertmanager' ? 'bg-danger-50 text-danger-500' :
+                                            'bg-success-50 text-success-500'}">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
                                                 c.type === 'kubernetes' ? '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>' :
                                                 c.type === 'prometheus' ? '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>' :
@@ -41,12 +41,12 @@ export async function renderSettingsView(container) {
                                         <div>
                                             <div class="font-bold text-sm mb-0.5 flex items-center gap-2">
                                                 ${c.name}
-                                                <span class="w-1.5 h-1.5 rounded-full ${c.status === 'healthy' || c.status === 'online' ? 'bg-alert-green' : 'bg-alert-red'}"></span>
+                                                <span class="w-1.5 h-1.5 rounded-full ${c.status === 'healthy' || c.status === 'online' ? 'bg-success-500' : 'bg-danger-500'}"></span>
                                             </div>
-                                            <div class="text-[10px] font-mono text-muted uppercase">${c.type} • ${c.url || 'Internal'}</div>
+                                            <div class="text-xs font-mono text-muted uppercase">${c.type} • ${c.url || 'Internal'}</div>
                                         </div>
                                     </div>
-                                    <button class="delete-connector-btn p-2 text-muted hover:text-alert-red transition-colors opacity-0 group-hover:opacity-100" data-id="${c.id}" title="Remove Connector">
+                                    <button class="delete-connector-btn p-2 text-muted hover:text-danger-500 transition-colors opacity-0 group-hover:opacity-100" data-id="${c.id}" title="Remove Connector">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                     </button>
                                 </div>
@@ -58,14 +58,14 @@ export async function renderSettingsView(container) {
                     <div class="lg:col-span-4 flex flex-col gap-6">
 
                         <!-- AI Engine -->
-                        <div class="pane p-8 flex flex-col gap-6 bg-surface-light/50 dark:bg-surface-dark/50">
-                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-surface-hover-light dark:border-surface-hover-dark pb-4 flex items-center gap-2">
+                        <div class="pane p-8 flex flex-col gap-6">
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-neutral-200 pb-4 flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
                                 AI Engine
                             </h3>
                             <div class="flex flex-col gap-4">
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Provider</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Provider</label>
                                     <select id="setting-llm-provider" class="input-modern">
                                         <option value="openai"    ${env.LLM_PROVIDER === 'openai'    ? 'selected' : ''}>OpenAI</option>
                                         <option value="anthropic" ${env.LLM_PROVIDER === 'anthropic' ? 'selected' : ''}>Anthropic</option>
@@ -74,81 +74,75 @@ export async function renderSettingsView(container) {
                                     </select>
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label id="api-key-label" class="text-[9px] font-bold text-muted uppercase tracking-widest">API Key</label>
+                                    <label id="api-key-label" class="text-[11px] font-bold text-muted uppercase tracking-widest">API Key</label>
                                     <input type="password" id="setting-llm-key" class="input-modern" autocomplete="off">
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Model <span class="normal-case font-normal">(optional)</span></label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Model <span class="normal-case font-normal">(optional)</span></label>
                                     <input type="text" id="setting-llm-model" value="${env.LLM_MODEL}" class="input-modern" autocomplete="off">
-                                    <p id="model-hint" class="text-[10px] text-muted"></p>
+                                    <p id="model-hint" class="text-xs text-muted"></p>
                                 </div>
-                                <button id="save-ai-btn" class="mt-2 w-full h-10 bg-surface-hover-light dark:bg-surface-hover-dark text-text-light dark:text-text-dark font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-primary-light hover:text-white transition-all">Save AI Config</button>
-                                <div id="ai-feedback" class="hidden text-[10px] font-mono px-3 py-2 rounded-lg"></div>
+                                <button id="save-ai-btn" class="mt-2 btn-outline w-full hover:bg-primary-600 hover:text-white transition-all">Save AI Config</button>
+                                <div id="ai-feedback" class="hidden text-xs font-mono px-3 py-2 rounded"></div>
                             </div>
                         </div>
 
                         <!-- Notifications -->
-                        <div class="pane p-8 flex flex-col gap-6 bg-surface-light/50 dark:bg-surface-dark/50">
-                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-surface-hover-light dark:border-surface-hover-dark pb-4">Notifications</h3>
+                        <div class="pane p-8 flex flex-col gap-6">
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-neutral-200 pb-4">Notifications</h3>
                             <div class="flex flex-col gap-4">
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Teams Webhook</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Teams Webhook</label>
                                     <input type="text" id="setting-teams-url" value="${env.TEAMS_WEBHOOK_URL}" class="input-modern">
                                 </div>
-                                <button id="save-env-btn" class="mt-2 w-full h-10 bg-surface-hover-light dark:bg-surface-hover-dark text-text-light dark:text-text-dark font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-primary-light hover:text-white transition-all">Save</button>
-                                <div id="notif-feedback" class="hidden text-[10px] font-mono px-3 py-2 rounded-lg"></div>
+                                <button id="save-env-btn" class="mt-2 btn-outline w-full hover:bg-primary-600 hover:text-white transition-all">Save</button>
+                                <div id="notif-feedback" class="hidden text-xs font-mono px-3 py-2 rounded"></div>
                             </div>
                         </div>
 
                         <!-- Confluence Knowledge Base -->
-                        <div class="pane p-8 flex flex-col gap-6 bg-surface-light/50 dark:bg-surface-dark/50">
-                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-surface-hover-light dark:border-surface-hover-dark pb-4 flex items-center gap-2">
+                        <div class="pane p-8 flex flex-col gap-6">
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-muted border-b border-neutral-200 pb-4 flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                                 Confluence Runbooks
                             </h3>
                             <div class="flex flex-col gap-4">
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Type</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Type</label>
                                     <select id="setting-conf-type" class="input-modern">
                                         <option value="cloud"       ${env.CONFLUENCE_TYPE === 'cloud'       ? 'selected' : ''}>Atlassian Cloud</option>
                                         <option value="self-hosted" ${env.CONFLUENCE_TYPE === 'self-hosted' ? 'selected' : ''}>Self-Hosted (On-prem)</option>
                                     </select>
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Confluence URL</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Confluence URL</label>
                                     <input type="text" id="setting-conf-url" value="${env.CONFLUENCE_URL || ''}" placeholder="https://yourcompany.atlassian.net" class="input-modern">
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Email / Username</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Email / Username</label>
                                     <input type="text" id="setting-conf-email" value="${env.CONFLUENCE_EMAIL || ''}" placeholder="user@company.com" class="input-modern" autocomplete="off">
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">API Token / Password</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">API Token / Password</label>
                                     <input type="password" id="setting-conf-token" value="${env.CONFLUENCE_API_TOKEN || ''}" class="input-modern" autocomplete="off">
                                 </div>
                                 <div class="flex flex-col gap-2">
-                                    <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Root Page URL</label>
+                                    <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Root Page URL</label>
                                     <input type="text" id="setting-conf-page" value="${env.CONFLUENCE_ROOT_PAGE_URL || ''}" placeholder="https://…/wiki/spaces/SRE/pages/123456/Runbooks" class="input-modern">
-                                    <p class="text-[10px] text-muted">Paste the full URL of the parent Confluence page — all child pages will be treated as runbooks.</p>
+                                    <p class="text-xs text-muted">Paste the full URL of the parent Confluence page — all child pages will be treated as runbooks.</p>
                                 </div>
                                 <div class="mt-2 flex flex-col gap-2">
                                     <div class="flex gap-2">
                                         <button id="test-confluence-btn"
-                                            class="flex-1 h-10 bg-surface-hover-light dark:bg-surface-hover-dark
-                                                   text-text-light dark:text-text-dark font-bold text-[10px]
-                                                   uppercase tracking-widest rounded-lg
-                                                   hover:bg-blue-500/10 hover:text-blue-400 transition-all">
+                                            class="flex-1 btn-outline hover:bg-info-50 hover:text-info-500 transition-all">
                                             Test Connection
                                         </button>
                                         <button id="save-confluence-btn"
-                                            class="flex-1 h-10 bg-surface-hover-light dark:bg-surface-hover-dark
-                                                   text-text-light dark:text-text-dark font-bold text-[10px]
-                                                   uppercase tracking-widest rounded-lg
-                                                   hover:bg-primary-light hover:text-white transition-all">
+                                            class="flex-1 btn-outline hover:bg-primary-600 hover:text-white transition-all">
                                             Save Config
                                         </button>
                                     </div>
-                                    <div id="confluence-feedback" class="hidden text-[10px] font-mono px-3 py-2 rounded-lg"></div>
+                                    <div id="confluence-feedback" class="hidden text-xs font-mono px-3 py-2 rounded"></div>
                                 </div>
                             </div>
                         </div>
@@ -158,18 +152,18 @@ export async function renderSettingsView(container) {
             </div>
 
             <!-- Add Connector Modal -->
-            <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-                <div class="pane p-10 max-w-md w-full animate-in fade-in zoom-in duration-300">
+            <div id="add-modal" class="fixed inset-0 glass z-50 flex items-center justify-center hidden">
+                <div class="pane p-10 max-w-md w-full" style="box-shadow:var(--shadow-400);">
                     <h3 class="text-2xl font-bold mb-2">New Infrastructure</h3>
                     <p class="text-muted text-xs mb-8">Register a new Prometheus server or K8s cluster.</p>
-                    
+
                     <div class="flex flex-col gap-6">
                         <div class="flex flex-col gap-2">
-                            <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Connector Name</label>
+                            <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Connector Name</label>
                             <input type="text" id="new-conn-name" placeholder="E.g. EKS-Prod-01" class="input-modern">
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Type</label>
+                            <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Type</label>
                             <select id="new-conn-type" class="input-modern">
                                 <option value="alertmanager">Alertmanager</option>
                                 <option value="prometheus">Prometheus Server</option>
@@ -178,14 +172,14 @@ export async function renderSettingsView(container) {
                             </select>
                         </div>
                         <div id="url-container" class="flex flex-col gap-2">
-                            <label class="text-[9px] font-bold text-muted uppercase tracking-widest">Endpoint URL</label>
+                            <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Endpoint URL</label>
                             <input type="text" id="new-conn-url" placeholder="http://10.0.0.5:9093" class="input-modern">
-                            <p id="url-hint" class="text-[10px] text-muted">Alertmanager base URL — alerts will be polled every 30s automatically.</p>
+                            <p id="url-hint" class="text-xs text-muted">Alertmanager base URL — alerts will be polled every 30s automatically.</p>
                         </div>
-                        
+
                         <div class="flex gap-4 mt-4">
-                            <button id="close-modal" class="flex-grow h-12 rounded-xl text-muted font-bold text-[10px] uppercase tracking-widest">Cancel</button>
-                            <button id="confirm-add-conn" class="flex-grow h-12 bg-primary-light dark:bg-primary-dark text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-primary-light/20">Add Connector</button>
+                            <button id="close-modal" class="flex-grow btn-outline">Cancel</button>
+                            <button id="confirm-add-conn" class="flex-grow btn-primary">Add Connector</button>
                         </div>
                     </div>
                 </div>
@@ -214,7 +208,7 @@ export async function renderSettingsView(container) {
         container.querySelector('#confirm-add-conn').onclick = async () => {
             const btn = container.querySelector('#confirm-add-conn');
             btn.disabled = true;
-            btn.innerText = 'PROVISIONING...';
+            btn.innerText = 'Provisioning…';
 
             const payload = {
                 name: container.querySelector('#new-conn-name').value,
@@ -326,13 +320,12 @@ export async function renderSettingsView(container) {
         function showFeedback(elementId, ok, message) {
             const el = container.querySelector(`#${elementId}`);
             if (!el) return;
-            el.className = `text-[10px] font-mono px-3 py-2 rounded-lg ${
-                ok
-                    ? 'bg-alert-green/10 text-alert-green border border-alert-green/20'
-                    : 'bg-alert-red/10 text-alert-red border border-alert-red/20'
-            }`;
+            el.style.background  = ok ? '#ECFFFD' : '#FFF2F2';
+            el.style.color       = ok ? '#007B51' : '#CC0909';
+            el.style.borderColor = ok ? '#B0EFDA' : '#FCDEDE';
+            el.style.border      = '1px solid';
+            el.className = 'text-xs font-mono px-3 py-2 rounded';
             el.textContent = (ok ? '✓ ' : '✗ ') + message;
-            el.classList.remove('hidden');
         }
 
         function showConfluenceFeedback(ok, message) {
@@ -381,6 +374,6 @@ export async function renderSettingsView(container) {
         };
 
     } catch (e) {
-        container.innerHTML = `<div class="p-20 text-center text-alert-red font-bold">REGISTRY SYNC FAILED: ${e.message}</div>`;
+        container.innerHTML = `<div class="p-20 text-center text-danger-500 font-bold">REGISTRY SYNC FAILED: ${e.message}</div>`;
     }
 }
