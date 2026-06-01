@@ -57,13 +57,8 @@ export function renderSidebar() {
 
     nav.innerHTML = `
         <!-- Logo -->
-        <div style="height:56px; display:flex; align-items:center; gap:10px; padding:0 16px; border-bottom:1px solid #E6E6E6; flex-shrink:0;">
-            <div style="width:28px; height:28px; background:#134AC1; border-radius:4px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-            </div>
-            <span style="font-size:14px; font-weight:600; color:#121212; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">SRE Copilot</span>
+        <div style="height:56px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid #E6E6E6; flex-shrink:0;">
+            <img src="/logo.png" alt="SRE Co-Pilot" style="height:32px; width:auto; object-fit:contain; display:block;" />
         </div>
 
         <!-- Nav list -->
