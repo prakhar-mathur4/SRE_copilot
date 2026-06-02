@@ -98,23 +98,34 @@ export function renderArchiveView(container) {
         ? `<span class="text-primary-600 font-bold">${totalFiltered}</span> <span class="opacity-40 font-normal text-[11px]">of ${allResolved.length}</span>`
         : `<span class="text-primary-600 font-bold">${allResolved.length}</span>`;
 
-    const selectClass = 'bg-neutral-75 border border-neutral-200 rounded h-10 px-4 text-sm focus:outline-none focus:ring-2 ring-primary-200 text-text-light';
+    const selectClass = 'bg-neutral-75 border border-neutral-200 rounded px-3 text-xs text-text-light focus:outline-none focus:border-primary-300';
 
     container.innerHTML = `
-        <div class="flex flex-col gap-6 h-full min-h-0">
-            <div class="pane flex flex-col flex-grow min-h-0">
-                <div class="pane-header flex items-center justify-between">
-                    <span>Resolved Incidents ${countLabel}</span>
-                    ${isFiltered ? `<button id="archive-clear-filters" class="text-[11px] font-bold uppercase tracking-widest text-primary-600 hover:opacity-70 transition-opacity">Clear Filters ✕</button>` : ''}
+        <div class="flex flex-col gap-4 h-full min-h-0">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h2 class="text-lg font-bold">Resolved Incidents</h2>
+                    <p class="text-[11px] text-muted">
+                        ${isFiltered
+                            ? `${totalFiltered} of ${allResolved.length} incident${allResolved.length !== 1 ? 's' : ''}`
+                            : `${allResolved.length} incident${allResolved.length !== 1 ? 's' : ''} resolved`}
+                    </p>
                 </div>
-                <div class="p-4 border-b border-neutral-200 flex flex-wrap gap-3">
-                    <div class="relative flex-grow min-w-[180px]">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="relative">
+                        <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40"
+                            xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
                         <input type="text" id="archive-search" placeholder="Search by name, ID, or context..."
                             value="${escapeHtml(filters.search)}"
-                            class="w-full bg-neutral-75 border border-neutral-200 rounded h-10 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 ring-primary-200 transition-all text-text-light">
-                        <svg class="absolute left-3 top-2.5 opacity-40" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            class="bg-neutral-75 border border-neutral-200 rounded text-xs text-text-light focus:outline-none focus:border-primary-300"
+                            style="height:30px; width:260px; padding-left:32px; padding-right:10px;" />
                     </div>
-                    <select id="archive-sev-filter" class="${selectClass}">
+                    <select id="archive-sev-filter" class="${selectClass}" style="height:30px;">
                         <option value="all"      ${filters.severity === 'all'      ? 'selected' : ''}>All Severities</option>
                         <option value="critical" ${filters.severity === 'critical' ? 'selected' : ''}>Critical</option>
                         <option value="page"     ${filters.severity === 'page'     ? 'selected' : ''}>Page</option>
@@ -122,10 +133,15 @@ export function renderArchiveView(container) {
                         <option value="info"     ${filters.severity === 'info'     ? 'selected' : ''}>Info</option>
                         <option value="none"     ${filters.severity === 'none'     ? 'selected' : ''}>None</option>
                     </select>
-                    <select id="archive-sort" class="${selectClass}">
+                    <select id="archive-sort" class="${selectClass}" style="height:30px;">
                         ${SORT_OPTIONS.map(o => `<option value="${o.value}" ${filters.sortBy === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
                     </select>
+                    ${isFiltered ? `<button id="archive-clear-filters" class="text-[11px] font-bold text-primary-600 hover:opacity-70 transition-opacity whitespace-nowrap">Clear ✕</button>` : ''}
                 </div>
+            </div>
+
+            <!-- Cards -->
+            <div class="pane flex-grow flex flex-col min-h-0 overflow-hidden">
                 <div class="flex-grow overflow-auto p-4 flex flex-col gap-3">
                     ${totalFiltered === 0 ? `
                         <div class="empty-state flex flex-col items-center gap-3 mt-12">
