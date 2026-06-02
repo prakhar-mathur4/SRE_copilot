@@ -7,23 +7,28 @@ import { API_BASE } from '../utils/api';
 export async function renderPodsView(container) {
     // 1. Initial Layout Render (Static Skeleton)
     container.innerHTML = `
-        <div class="flex flex-col gap-6 h-full min-h-0">
-            <div class="pane flex flex-col min-h-0">
-                <div class="pane-header flex justify-between items-center h-12">
-                    <div class="flex items-center gap-3">
-                        <span>Cluster Resource Registry</span>
-                        <span id="refresh-indicator" class="text-[11px] font-bold text-success-500 flex items-center gap-1 opacity-0 transition-opacity duration-500">
-                            <span class="h-1.5 w-1.5 rounded-full bg-success-500 animate-ping"></span> LIVE
-                        </span>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Filter Namespace:</label>
-                        <select id="ns-filter" class="bg-neutral-75 border border-neutral-200 rounded h-8 px-4 text-xs font-bold text-primary-600 focus:ring-2 ring-primary-200">
-                            <option value="all">Global (All)</option>
-                            ${state.namespaces.map(ns => `<option value="${ns}" ${state.podFilters.namespace === ns ? 'selected' : ''}>${ns}</option>`).join('')}
-                        </select>
-                    </div>
+        <div class="flex flex-col gap-4 h-full min-h-0">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h2 class="text-lg font-bold">Cluster Resource Registry</h2>
+                    <p id="pods-count-label" class="text-[11px] text-muted">Loading...</p>
                 </div>
+                <div class="flex items-center gap-3">
+                    <span id="refresh-indicator" class="text-[11px] font-bold text-success-500 flex items-center gap-1 opacity-0 transition-opacity duration-500">
+                        <span class="h-1.5 w-1.5 rounded-full bg-success-500 animate-ping"></span> LIVE
+                    </span>
+                    <select id="ns-filter" class="bg-neutral-75 border border-neutral-200 rounded px-2 font-bold text-primary-600 focus:outline-none"
+                        style="height:26px; font-size:11px;">
+                        <option value="all">Global (All)</option>
+                        ${state.namespaces.map(ns => `<option value="${ns}" ${state.podFilters.namespace === ns ? 'selected' : ''}>${ns}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="pane flex-grow flex flex-col min-h-0 overflow-hidden">
                 <div class="flex-grow overflow-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="table-header">
@@ -78,6 +83,9 @@ export async function renderPodsView(container) {
 
             // Clear and Rebuild Rows
             body.innerHTML = pods.length === 0 ? `<tr><td colspan="11" class="empty-state">Registry Empty for Current Context</td></tr>` : '';
+
+            const countLabel = container.querySelector('#pods-count-label');
+            if (countLabel) countLabel.textContent = `${pods.length} resource${pods.length !== 1 ? 's' : ''}`;
 
             pods.forEach(pod => {
                 const row = document.createElement('tr');
