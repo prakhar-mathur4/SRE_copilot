@@ -23,6 +23,8 @@ from bot.ssl_checker import (
     check_all_domains, check_domain, get_cached_results,
 )
 from bot.llm_client import call_llm, is_llm_configured
+from bot.auth import config as auth_config
+from bot.auth.service import resolve_session
 
 logger = logging.getLogger("sre_copilot")
 router = APIRouter()
@@ -31,6 +33,15 @@ router = APIRouter()
 # WebSocket connection endpoint
 @router.websocket("/ws/alerts")
 async def websocket_endpoint(websocket: WebSocket):
+    # The HTTP auth middleware does not cover WebSocket upgrades, so authenticate
+    # the handshake here via the session cookie. Reject unauthenticated or
+    # forced-password-change sessions before accepting the connection (1008 =
+    # policy violation).
+    resolved = resolve_session(websocket.cookies.get(auth_config.cookie_name))
+    if not resolved or resolved["user"]["must_change_password"]:
+        await websocket.close(code=1008)
+        return
+
     await manager.connect(websocket)
     try:
         while True:
