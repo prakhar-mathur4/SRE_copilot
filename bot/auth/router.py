@@ -90,6 +90,22 @@ async def me(request: Request):
     return body
 
 
+class StepUpRequest(BaseModel):
+    password: str
+
+
+@auth_router.post("/step-up")
+async def step_up(payload: StepUpRequest, request: Request):
+    """Re-enter the current password to unlock destructive operations for a
+    short window (password re-prompt step-up)."""
+    ok, error = service.step_up(request.cookies.get(config.cookie_name), payload.password)
+    if not ok:
+        status = 401 if error == "unauthenticated" else 400
+        return JSONResponse(status_code=status,
+                            content={"detail": "Re-authentication failed.", "code": error})
+    return {"success": True}
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: Optional[str] = None
     new_password: str

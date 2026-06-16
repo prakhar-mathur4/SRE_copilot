@@ -31,12 +31,13 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-    id          TEXT PRIMARY KEY,   -- sha256(raw session token)
-    user_id     TEXT NOT NULL,
-    csrf_token  TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    expires_at  TEXT NOT NULL,
-    revoked     INTEGER NOT NULL DEFAULT 0
+    id               TEXT PRIMARY KEY,   -- sha256(raw session token)
+    user_id          TEXT NOT NULL,
+    csrf_token       TEXT NOT NULL,
+    created_at       TEXT NOT NULL,
+    expires_at       TEXT NOT NULL,
+    revoked          INTEGER NOT NULL DEFAULT 0,
+    stepped_up_until TEXT
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -68,7 +69,15 @@ def init_db() -> None:
     with _lock:
         conn = get_conn()
         conn.executescript(SCHEMA)
+        _migrate(conn)
         conn.commit()
+
+
+def _migrate(conn) -> None:
+    """Idempotent column additions for DBs created by an earlier version."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)").fetchall()}
+    if "stepped_up_until" not in cols:
+        conn.execute("ALTER TABLE sessions ADD COLUMN stepped_up_until TEXT")
 
 
 def query_one(sql: str, params=()):

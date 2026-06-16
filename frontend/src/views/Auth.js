@@ -42,6 +42,52 @@ export function removeAuthScreen() {
     if (el) el.remove();
 }
 
+/**
+ * Modal password re-prompt for step-up re-authentication. Resolves to the
+ * entered password, or null if cancelled. Pure UI — the caller performs the
+ * /auth/step-up request.
+ */
+export function promptPassword({ title = 'Confirm your password', message = '', confirmLabel = 'Confirm' } = {}) {
+    return new Promise((resolve) => {
+        const id = 'stepup-overlay';
+        const existing = document.getElementById(id);
+        if (existing) existing.remove();
+
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="${id}" style="position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.4);
+                 display:flex; align-items:center; justify-content:center; padding:24px; font-family:inherit;">
+                <div style="width:100%; max-width:360px; background:#FFFFFF; border-radius:6px;
+                     box-shadow:0 12px 28px rgba(0,0,0,0.18); padding:24px;">
+                    <h3 style="font-size:15px; font-weight:600; color:#121212; margin:0 0 6px;">${title}</h3>
+                    <p style="font-size:12px; color:#666; margin:0 0 16px;">${message}</p>
+                    <input id="stepup-pw" type="password" autocomplete="current-password" style="${_inputStyle}" />
+                    <div id="stepup-err" style="display:none; font-size:12px; color:#CC0909; margin-top:8px;"></div>
+                    <div style="display:flex; gap:8px; margin-top:16px;">
+                        <button id="stepup-cancel" style="flex:1; height:36px; border:1px solid #E6E6E6; border-radius:4px; background:#FFF; font-size:13px; font-weight:600; color:#4D4D4D; cursor:pointer; font-family:inherit;">Cancel</button>
+                        <button id="stepup-ok" style="flex:1; height:36px; border:none; border-radius:4px; background:#134AC1; color:#FFF; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;">${confirmLabel}</button>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const overlay = document.getElementById(id);
+        const close = (value) => { overlay.remove(); resolve(value); };
+        overlay.querySelector('#stepup-cancel').onclick = () => close(null);
+        const submit = () => {
+            const pw = overlay.querySelector('#stepup-pw').value;
+            if (!pw) return;
+            close(pw);
+        };
+        overlay.querySelector('#stepup-ok').onclick = submit;
+        const input = overlay.querySelector('#stepup-pw');
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') submit();
+            if (e.key === 'Escape') close(null);
+        });
+        input.focus();
+    });
+}
+
 export function renderAuthScreen(mode, handlers = {}) {
     removeAuthScreen();
 

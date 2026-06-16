@@ -8,6 +8,7 @@
  *   - surfaces auth failures as DOM events the app guard listens for
  */
 import { state, updateState } from './state';
+import { promptPassword } from '../views/Auth';
 
 // Build-time configurable origin; falls back to local dev. WS scheme is derived
 // from the origin so https deployments get wss automatically.
@@ -26,27 +27,49 @@ export function getCsrfToken() { return _csrfToken; }
  * parse json). Dispatches auth events on 401 / forced-change so main.js can
  * route to the login or change-password screen.
  */
-export async function apiFetch(path, options = {}) {
+function _doFetch(path, options) {
     const method = (options.method || 'GET').toUpperCase();
     const headers = { ...(options.headers || {}) };
     if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
     if (_MUTATING.has(method) && _csrfToken) headers['X-CSRF-Token'] = _csrfToken;
+    return fetch(`${API_BASE}${path}`, { ...options, method, headers, credentials: 'include' });
+}
 
-    const res = await fetch(`${API_BASE}${path}`, {
-        ...options, method, headers, credentials: 'include',
-    });
+export async function apiFetch(path, options = {}) {
+    let res = await _doFetch(path, options);
 
     if (res.status === 401) {
         document.dispatchEvent(new CustomEvent('auth:required'));
-    } else if (res.status === 403) {
-        try {
-            const data = await res.clone().json();
-            if (data && data.code === 'password_change_required') {
-                document.dispatchEvent(new CustomEvent('auth:password-change'));
+        return res;
+    }
+    if (res.status === 403) {
+        let data = {};
+        try { data = await res.clone().json(); } catch (_) { /* non-JSON */ }
+        if (data.code === 'password_change_required') {
+            document.dispatchEvent(new CustomEvent('auth:password-change'));
+        } else if (data.code === 'step_up_required') {
+            // Prompt for the password, elevate the session, then retry once.
+            if (await _handleStepUp()) {
+                res = await _doFetch(path, options);
             }
-        } catch (_) { /* non-JSON 403 — ignore */ }
+        }
     }
     return res;
+}
+
+async function _handleStepUp() {
+    const pw = await promptPassword({
+        title: 'Confirm your password',
+        message: 'This action requires you to re-enter your password.',
+    });
+    if (!pw) return false;
+    return await stepUp(pw);
+}
+
+export async function stepUp(password) {
+    // Use _doFetch directly so a non-step-up response can't re-trigger the prompt.
+    const res = await _doFetch('/auth/step-up', { method: 'POST', body: JSON.stringify({ password }) });
+    return res.ok;
 }
 
 // --------------------------------------------------------------------------- //

@@ -152,12 +152,47 @@ def resolve_session(token: str):
     if not user or not user["is_active"]:
         return None
     store.touch_session(sid, _iso(_now() + timedelta(hours=config.session_ttl_hours)))
-    return {"user": user, "csrf_token": session["csrf_token"], "session_id": sid}
+    return {
+        "user": user,
+        "csrf_token": session["csrf_token"],
+        "session_id": sid,
+        "stepped_up_until": session["stepped_up_until"],
+    }
 
 
 def logout(token: str):
     if token:
         store.revoke_session(passwords.hash_token(token))
+
+
+# --------------------------------------------------------------------------- #
+# Step-up re-authentication (password re-prompt for destructive ops)
+# --------------------------------------------------------------------------- #
+
+def step_up(token: str, password: str):
+    """Re-verify the current user's password; on success marks the session
+    stepped-up for STEP_UP_TTL_MINUTES. Returns (ok, error_code)."""
+    resolved = resolve_session(token)
+    if not resolved:
+        return False, "unauthenticated"
+    user = resolved["user"]
+    if not passwords.verify_password(password, user["password_hash"]):
+        write_audit("step_up_failed", actor=user)
+        return False, "invalid_password"
+    until = _iso(_now() + timedelta(minutes=config.step_up_ttl_minutes))
+    store.set_step_up(resolved["session_id"], until)
+    write_audit("step_up", actor=user)
+    return True, None
+
+
+def is_stepped_up(resolved: dict) -> bool:
+    until = resolved.get("stepped_up_until")
+    if not until:
+        return False
+    try:
+        return _parse(until) > _now()
+    except Exception:
+        return False
 
 
 # --------------------------------------------------------------------------- #

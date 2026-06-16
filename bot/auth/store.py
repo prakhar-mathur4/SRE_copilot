@@ -114,6 +114,10 @@ def revoke_user_sessions(user_id):
     db.execute("UPDATE sessions SET revoked = 1 WHERE user_id = ?", (user_id,))
 
 
+def set_step_up(session_id, until):
+    db.execute("UPDATE sessions SET stepped_up_until = ? WHERE id = ?", (until, session_id))
+
+
 # --------------------------------------------------------------------------- #
 # Audit
 # --------------------------------------------------------------------------- #

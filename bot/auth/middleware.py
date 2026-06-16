@@ -18,7 +18,7 @@ from starlette.responses import JSONResponse
 
 from bot.auth import service
 from bot.auth.config import config
-from bot.auth.roles import Role, has_at_least, required_role, privileged_action
+from bot.auth.roles import Role, has_at_least, required_role, privileged_action, requires_step_up
 
 logger = logging.getLogger("sre_copilot")
 
@@ -84,6 +84,10 @@ async def auth_dispatch(request, call_next):
 
     if not has_at_least(user["role"], needed):
         return _json(403, f"Requires '{needed.value}' role or higher.", "forbidden")
+
+    # 7b. step-up: the most destructive ops need a recent password re-prompt
+    if requires_step_up(method, path) and not service.is_stepped_up(resolved):
+        return _json(403, "Re-authenticate to perform this action.", "step_up_required")
 
     # 8. run + audit privileged mutations
     action = privileged_action(method, path)

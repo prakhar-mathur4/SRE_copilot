@@ -52,5 +52,11 @@ class AuthConfig:
     def min_password_length(self) -> int:
         return int(os.getenv("MIN_PASSWORD_LENGTH", "10"))
 
+    @property
+    def step_up_ttl_minutes(self) -> int:
+        # How long a password re-prompt keeps a session "stepped up" for
+        # destructive operations.
+        return int(os.getenv("STEP_UP_TTL_MINUTES", "5"))
+
 
 config = AuthConfig()

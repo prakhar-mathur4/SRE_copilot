@@ -104,6 +104,13 @@ _PRIVILEGED_RAW = [
 ]
 PRIVILEGED_AUDIT = [(m, _to_regex(p), action) for (m, p, action) in _PRIVILEGED_RAW]
 
+# Ops that require a recent password re-prompt (step-up) in addition to role.
+_STEP_UP_RAW = [
+    ("DELETE", "/api/v1/pods/{namespace}/{pod_name}"),
+    ("POST", "/api/v1/settings/env"),
+]
+STEP_UP_REQUIRED = [(m, _to_regex(p)) for (m, p) in _STEP_UP_RAW]
+
 
 def required_role(method: str, path: str):
     """Return the minimum Role for (method, path), or None if no policy matches."""
@@ -119,3 +126,10 @@ def privileged_action(method: str, path: str):
         if m == method and rx.match(path):
             return action
     return None
+
+
+def requires_step_up(method: str, path: str) -> bool:
+    for m, rx in STEP_UP_REQUIRED:
+        if m == method and rx.match(path):
+            return True
+    return False
