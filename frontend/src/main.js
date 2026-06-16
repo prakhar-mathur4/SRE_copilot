@@ -3,7 +3,11 @@
  */
 import './style.css';
 import { state, subscribe, applyTheme, updateState } from './utils/state';
-import { fetchIncidents, updateHealth, connectWebSocket } from './utils/api';
+import {
+    fetchIncidents, updateHealth, connectWebSocket,
+    fetchMe, login, changePassword,
+} from './utils/api';
+import { renderAuthScreen, removeAuthScreen } from './views/Auth';
 
 // Components
 import { renderHeader } from './components/Header';
@@ -20,11 +24,68 @@ import { renderPodsView } from './views/Pods';
 import { renderSettingsView } from './views/Settings';
 import { renderRunbooksView } from './views/Runbooks';
 import { renderSSLView } from './views/SSL';
+import { renderUsersView } from './views/Users';
 
 /**
- * INITIALIZATION
+ * AUTH GUARD — runs before the app boots. Routes to the login or
+ * forced-password-change screen, then hands off to startApp().
  */
-async function init() {
+let _appStarted = false;
+
+async function boot() {
+    const me = await fetchMe();
+    if (!me) { showLogin(); return; }
+    updateState({ currentUser: me }, true);
+    if (me.must_change_password) { showChange(); return; }
+    removeAuthScreen();
+    await startApp();
+}
+
+function showLogin() {
+    renderAuthScreen('login', {
+        onLogin: async (username, password) => {
+            const r = await login(username, password);
+            if (!r.ok) return r.data.detail || 'Login failed.';
+            updateState({ currentUser: r.data }, true);
+            if (r.data.must_change_password) { showChange(); return null; }
+            removeAuthScreen();
+            await startApp();
+            return null;
+        },
+    });
+}
+
+function showChange() {
+    renderAuthScreen('change', {
+        onChange: async (newPassword) => {
+            const r = await changePassword(null, newPassword);
+            if (!r.ok) return r.data.detail || 'Could not update password.';
+            updateState({ currentUser: r.data }, true);
+            removeAuthScreen();
+            await startApp();
+            return null;
+        },
+    });
+}
+
+// Session expired or revoked mid-session → return to login (reload is the
+// simplest clean teardown of timers/subscriptions/WS).
+let _reloading = false;
+document.addEventListener('auth:required', () => {
+    if (_reloading) return;
+    _reloading = true;
+    window.location.reload();
+});
+document.addEventListener('auth:password-change', () => {
+    if (_appStarted) showChange();
+});
+
+/**
+ * APPLICATION STARTUP (post-authentication)
+ */
+async function startApp() {
+    if (_appStarted) return;
+    _appStarted = true;
     // Ensure URL has a hash on first load
     if (!window.location.hash) {
         window.history.replaceState(null, '', '#/dashboard');
@@ -186,6 +247,9 @@ function renderView(view) {
         case 'ssl':
             renderSSLView(container);
             break;
+        case 'users':
+            renderUsersView(container);
+            break;
         default:
             renderDashboardView(container);
     }
@@ -216,5 +280,5 @@ function buildActivityEntry(data) {
     }
 }
 
-// Start the app
-init();
+// Start the app (auth guard first)
+boot();

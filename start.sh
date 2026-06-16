@@ -74,7 +74,7 @@ BACKEND_PID=$!
 echo "$BACKEND_PID" > "$BACKEND_PID_FILE"
 
 for i in $(seq 1 20); do
-  if curl -sf http://localhost:8000/api/v1/incidents > /dev/null 2>&1; then
+  if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
     success "Backend  → http://localhost:8000  (PID $BACKEND_PID | log: backend.log)"
     break
   fi
