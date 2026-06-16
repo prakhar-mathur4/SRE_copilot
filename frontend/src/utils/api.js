@@ -55,12 +55,17 @@ export async function apiFetch(path, options = {}) {
 
 export async function login(username, password) {
     // Plain fetch (no csrf yet; must not trigger the 401 auth-required redirect).
-    const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ username, password }),
-    });
+    let res;
+    try {
+        res = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password }),
+        });
+    } catch (e) {
+        return { ok: false, status: 0, data: { detail: 'Cannot reach the server. Is the backend running?' } };
+    }
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.csrf_token) setCsrfToken(data.csrf_token);
     return { ok: res.ok, status: res.status, data };
@@ -75,10 +80,15 @@ export async function fetchMe() {
 }
 
 export async function changePassword(currentPassword, newPassword) {
-    const res = await apiFetch('/auth/change-password', {
-        method: 'POST',
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-    });
+    let res;
+    try {
+        res = await apiFetch('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        });
+    } catch (e) {
+        return { ok: false, status: 0, data: { detail: 'Cannot reach the server. Is the backend running?' } };
+    }
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.csrf_token) setCsrfToken(data.csrf_token);
     return { ok: res.ok, status: res.status, data };

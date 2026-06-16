@@ -69,7 +69,9 @@ export function renderAuthScreen(mode, handlers = {}) {
             const password = document.getElementById('auth-password').value;
             if (!username || !password) { _showError('Enter your username and password.'); return; }
             btn.disabled = true; btn.textContent = 'Signing in…';
-            const err = await handlers.onLogin(username, password);
+            let err;
+            try { err = await handlers.onLogin(username, password); }
+            catch (e) { err = 'Something went wrong. Please try again.'; }
             if (err) { _showError(err); btn.disabled = false; btn.textContent = 'Sign in'; }
         };
         document.getElementById('auth-submit').onclick = submit;
@@ -105,7 +107,9 @@ export function renderAuthScreen(mode, handlers = {}) {
             if (pw.length < 10) { _showError('Password must be at least 10 characters.'); return; }
             if (pw !== confirm) { _showError('Passwords do not match.'); return; }
             btn.disabled = true; btn.textContent = 'Updating…';
-            const err = await handlers.onChange(pw);
+            let err;
+            try { err = await handlers.onChange(pw); }
+            catch (e) { err = 'Something went wrong. Please try again.'; }
             if (err) { _showError(err); btn.disabled = false; btn.textContent = 'Update password'; }
         };
         document.getElementById('auth-submit').onclick = submit;
