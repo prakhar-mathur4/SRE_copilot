@@ -68,6 +68,11 @@ fi
 # ── start backend ─────────────────────────────────────────────────────────────
 info "Starting backend..."
 cd "$SCRIPT_DIR"
+# Track whether this is a first run (no auth DB yet) so we can surface the
+# one-time admin credentials the backend generates on bootstrap.
+FIRST_RUN=no
+[ -f "$SCRIPT_DIR/auth.db" ] || FIRST_RUN=yes
+
 "$SCRIPT_DIR/bot/.venv/bin/uvicorn" bot.main:app --reload --port 8000 \
   >> "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
@@ -84,6 +89,17 @@ for i in $(seq 1 20); do
     exit 1
   fi
 done
+
+# On a fresh install, show the generated one-time admin login.
+if [ "$FIRST_RUN" = "yes" ]; then
+  ADMIN_PW=$(grep "  password: " "$BACKEND_LOG" | tail -1 | awk '{print $2}')
+  if [ -n "$ADMIN_PW" ]; then
+    warn "First run — initial admin login (change on first sign-in):"
+    echo "         username: admin"
+    echo "         password: $ADMIN_PW"
+    echo "         (also in backend.log)"
+  fi
+fi
 
 # ── start frontend ────────────────────────────────────────────────────────────
 info "Starting frontend..."
