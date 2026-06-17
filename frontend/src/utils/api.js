@@ -152,6 +152,25 @@ export async function deleteUser(id) {
 }
 
 // --------------------------------------------------------------------------- //
+// API tokens / service accounts (admin)
+// --------------------------------------------------------------------------- //
+
+export async function listTokens() {
+    const res = await apiFetch('/tokens');
+    return res.ok ? res.json() : { tokens: [] };
+}
+
+export async function createToken(payload) {
+    const res = await apiFetch('/tokens', { method: 'POST', body: JSON.stringify(payload) });
+    return { ok: res.ok, data: await res.json().catch(() => ({})) };
+}
+
+export async function revokeToken(id) {
+    const res = await apiFetch(`/tokens/${id}`, { method: 'DELETE' });
+    return { ok: res.ok, data: await res.json().catch(() => ({})) };
+}
+
+// --------------------------------------------------------------------------- //
 // Incidents & dashboards
 // --------------------------------------------------------------------------- //
 

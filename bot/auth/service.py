@@ -276,6 +276,75 @@ def admin_update_user(actor, user_id, role=None, is_active=None):
     return store.get_user_by_id(user_id), None
 
 
+# --------------------------------------------------------------------------- #
+# API tokens (admin-managed service accounts)
+# --------------------------------------------------------------------------- #
+
+def admin_create_token(actor, name, role, expires_in_days=None):
+    """Returns ({id, name, role, token, expires_at}, None) or (None, error).
+    The raw token is returned once and never stored (only its hash)."""
+    if not name:
+        return None, "Token name is required."
+    if role not in [r.value for r in Role]:
+        return None, f"Invalid role '{role}'."
+    raw = passwords.new_api_token()
+    expires_at = None
+    if expires_in_days:
+        expires_at = _iso(_now() + timedelta(days=int(expires_in_days)))
+    tid = store.create_api_token(
+        name=name,
+        token_hash=passwords.hash_token(raw),
+        role=role,
+        created_by=(actor or {}).get("username"),
+        created_at=_iso(_now()),
+        expires_at=expires_at,
+    )
+    write_audit("token_created", actor=actor, target=name, metadata={"role": role, "token_id": tid})
+    return {"id": tid, "name": name, "role": role, "token": raw, "expires_at": expires_at}, None
+
+
+def admin_list_tokens():
+    return store.list_api_tokens()
+
+
+def admin_revoke_token(actor, token_id):
+    tok = store.get_api_token_by_id(token_id)
+    if not tok:
+        return None, "Token not found."
+    store.revoke_api_token(token_id)
+    write_audit("token_revoked", actor=actor, target=tok["name"])
+    return {"revoked": True}, None
+
+
+def resolve_token(authorization_header: str):
+    """Validate an 'Authorization: Bearer <token>' header. Returns a principal
+    dict {user, is_token} shaped like a session user, or None."""
+    if not authorization_header or not authorization_header.startswith("Bearer "):
+        return None
+    raw = authorization_header[len("Bearer "):].strip()
+    if not raw:
+        return None
+    tok = store.get_api_token_by_hash(passwords.hash_token(raw))
+    if not tok or tok["revoked"]:
+        return None
+    if tok["expires_at"]:
+        try:
+            if _parse(tok["expires_at"]) <= _now():
+                return None
+        except Exception:
+            return None
+    store.touch_api_token(tok["id"], _iso(_now()))
+    principal = {
+        "id": tok["id"],
+        "username": f"token:{tok['name']}",
+        "display_name": tok["name"],
+        "role": tok["role"],
+        "must_change_password": 0,
+        "is_active": 1,
+    }
+    return {"user": principal, "is_token": True}
+
+
 def admin_delete_user(actor, user_id):
     target = store.get_user_by_id(user_id)
     if not target:

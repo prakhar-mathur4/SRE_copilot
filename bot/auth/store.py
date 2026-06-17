@@ -119,6 +119,45 @@ def set_step_up(session_id, until):
 
 
 # --------------------------------------------------------------------------- #
+# API tokens (service accounts)
+# --------------------------------------------------------------------------- #
+
+def create_api_token(name, token_hash, role, created_by, created_at, expires_at):
+    tid = str(uuid.uuid4())
+    db.execute(
+        """INSERT INTO api_tokens
+           (id, name, token_hash, role, created_by, created_at, expires_at, revoked)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0)""",
+        (tid, name, token_hash, role, created_by, created_at, expires_at),
+    )
+    return tid
+
+
+def get_api_token_by_hash(token_hash):
+    return db.row_to_dict(db.query_one("SELECT * FROM api_tokens WHERE token_hash = ?", (token_hash,)))
+
+
+def get_api_token_by_id(token_id):
+    return db.row_to_dict(db.query_one("SELECT * FROM api_tokens WHERE id = ?", (token_id,)))
+
+
+def list_api_tokens():
+    rows = db.query_all(
+        """SELECT id, name, role, created_by, created_at, expires_at, last_used_at, revoked
+           FROM api_tokens ORDER BY created_at ASC"""
+    )
+    return [db.row_to_dict(r) for r in rows]
+
+
+def revoke_api_token(token_id):
+    db.execute("UPDATE api_tokens SET revoked = 1 WHERE id = ?", (token_id,))
+
+
+def touch_api_token(token_id, when):
+    db.execute("UPDATE api_tokens SET last_used_at = ? WHERE id = ?", (when, token_id))
+
+
+# --------------------------------------------------------------------------- #
 # Audit
 # --------------------------------------------------------------------------- #
 

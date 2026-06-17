@@ -13,7 +13,7 @@ See AUTH_RBAC_PLAN.md for the full design.
 """
 from bot.auth.config import config
 from bot.auth.middleware import auth_dispatch
-from bot.auth.router import auth_router, users_router
+from bot.auth.router import auth_router, users_router, tokens_router
 from bot.auth.service import bootstrap
 from bot.auth.webhook import verify_webhook_hmac
 
@@ -22,6 +22,7 @@ __all__ = [
     "auth_dispatch",
     "auth_router",
     "users_router",
+    "tokens_router",
     "bootstrap",
     "verify_webhook_hmac",
 ]

@@ -19,6 +19,7 @@ from bot.auth import (
     auth_dispatch,
     auth_router,
     users_router,
+    tokens_router,
     bootstrap as auth_bootstrap,
 )
 
@@ -62,9 +63,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auth + user-management routers
+# Auth + user-management + service-account-token routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+app.include_router(tokens_router, prefix="/api/v1/tokens", tags=["tokens"])
 
 # Alert webhook router (Alertmanager integration)
 app.include_router(alert_router, prefix="/api/v1/alerts", tags=["alerts"])

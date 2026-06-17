@@ -17,6 +17,7 @@ logger = logging.getLogger("sre_copilot")
 
 auth_router = APIRouter()
 users_router = APIRouter()
+tokens_router = APIRouter()
 
 
 def _public_user(user: dict) -> dict:
@@ -182,4 +183,37 @@ async def delete_user(user_id: str, request: Request):
     result, error = service.admin_delete_user(request.state.user, user_id)
     if error:
         return JSONResponse(status_code=400, content={"detail": error, "code": "delete_failed"})
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# API tokens / service accounts (ADMIN+; enforced in middleware)
+# --------------------------------------------------------------------------- #
+
+class CreateTokenRequest(BaseModel):
+    name: str
+    role: str
+    expires_in_days: Optional[int] = None
+
+
+@tokens_router.get("")
+async def list_tokens():
+    return {"tokens": service.admin_list_tokens()}
+
+
+@tokens_router.post("")
+async def create_token(payload: CreateTokenRequest, request: Request):
+    result, error = service.admin_create_token(
+        request.state.user, payload.name, payload.role, payload.expires_in_days
+    )
+    if error:
+        return JSONResponse(status_code=400, content={"detail": error, "code": "create_failed"})
+    return result  # includes the raw token, shown once
+
+
+@tokens_router.delete("/{token_id}")
+async def revoke_token(token_id: str, request: Request):
+    result, error = service.admin_revoke_token(request.state.user, token_id)
+    if error:
+        return JSONResponse(status_code=404, content={"detail": error, "code": "revoke_failed"})
     return result

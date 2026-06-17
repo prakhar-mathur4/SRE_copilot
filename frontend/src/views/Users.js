@@ -5,7 +5,10 @@
  * only returns them once.
  */
 import { state } from '../utils/state';
-import { listUsers, createUser, updateUser, resetUserPassword, deleteUser } from '../utils/api';
+import {
+    listUsers, createUser, updateUser, resetUserPassword, deleteUser,
+    listTokens, createToken, revokeToken,
+} from '../utils/api';
 
 const ASSIGNABLE_ROLES = ['viewer', 'responder', 'maintainer', 'admin'];
 
@@ -23,10 +26,17 @@ export async function renderUsersView(container) {
     container.innerHTML = '<div class="p-20 text-center" style="color:#666;font-size:13px;">Loading users…</div>';
 
     const { users } = await listUsers();
+    const { tokens } = await listTokens();
     const me = state.currentUser || {};
 
     const roleOptions = (selected) => ASSIGNABLE_ROLES
         .map(r => `<option value="${r}" ${r === selected ? 'selected' : ''}>${r}</option>`).join('');
+
+    const tokenStatus = (t) => {
+        if (t.revoked) return '<span style="color:#CC0909;">Revoked</span>';
+        if (t.expires_at && new Date(t.expires_at) <= new Date()) return '<span style="color:#CC0909;">Expired</span>';
+        return '<span style="color:#007B51;">Active</span>';
+    };
 
     container.innerHTML = `
         <div style="max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px;">
@@ -97,8 +107,80 @@ export async function renderUsersView(container) {
                     </tbody>
                 </table>
             </div>
+
+            <!-- Service-account tokens -->
+            <div class="pane" style="padding:20px;">
+                <h3 style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#666; margin:0 0 6px;">API tokens (service accounts)</h3>
+                <p style="font-size:12px; color:#999; margin:0 0 14px;">Bearer tokens for CI / automation. Each carries a role; the secret is shown once. Tokens cannot perform step-up (human-only) operations.</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
+                    <div style="display:flex; flex-direction:column; gap:6px; flex:1; min-width:160px;">
+                        <label style="font-size:11px; font-weight:700; color:#666; text-transform:uppercase;">Token name</label>
+                        <input id="nt-name" class="input-modern" type="text" autocomplete="off" placeholder="e.g. ci-deploy" />
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px; min-width:140px;">
+                        <label style="font-size:11px; font-weight:700; color:#666; text-transform:uppercase;">Role</label>
+                        <select id="nt-role" class="input-modern">${roleOptions('viewer')}</select>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px; min-width:140px;">
+                        <label style="font-size:11px; font-weight:700; color:#666; text-transform:uppercase;">Expiry (days)</label>
+                        <input id="nt-expiry" class="input-modern" type="number" min="1" placeholder="optional" />
+                    </div>
+                    <button id="nt-create" class="btn-primary" style="height:38px;">Create token</button>
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:#F7F7F7; text-align:left; color:#666; font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">
+                            <th style="padding:10px 12px;">Name</th>
+                            <th style="padding:10px 12px;">Role</th>
+                            <th style="padding:10px 12px;">Status</th>
+                            <th style="padding:10px 12px;">Created by</th>
+                            <th style="padding:10px 12px;">Last used</th>
+                            <th style="padding:10px 12px; text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(tokens || []).map(t => `
+                            <tr data-tid="${t.id}" style="border-top:1px solid #EEE;">
+                                <td style="padding:10px 12px; font-weight:600; color:#121212;">${t.name}</td>
+                                <td style="padding:10px 12px; text-transform:capitalize;">${t.role}</td>
+                                <td style="padding:10px 12px;">${tokenStatus(t)}</td>
+                                <td style="padding:10px 12px; color:#666;">${t.created_by || '—'}</td>
+                                <td style="padding:10px 12px; color:#666;">${t.last_used_at ? new Date(t.last_used_at).toLocaleString() : 'never'}</td>
+                                <td style="padding:10px 12px; text-align:right;">
+                                    ${t.revoked ? '' : `<button class="tok-revoke" style="${actionBtn}; color:#CC0909;">Revoke</button>`}
+                                </td>
+                            </tr>
+                        `).join('') || '<tr><td colspan="6" style="padding:14px 12px; color:#999;">No tokens yet.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
+
+    // Create token
+    container.querySelector('#nt-create').onclick = async () => {
+        const name = container.querySelector('#nt-name').value.trim();
+        const role = container.querySelector('#nt-role').value;
+        const expiryRaw = container.querySelector('#nt-expiry').value.trim();
+        if (!name) { banner('Token name is required.', false); return; }
+        const payload = { name, role };
+        if (expiryRaw) payload.expires_in_days = parseInt(expiryRaw, 10);
+        const { ok, data } = await createToken(payload);
+        if (!ok) { banner(data.detail || 'Token creation failed.', false); return; }
+        banner(`Created token <b>${data.name}</b> (${data.role}). Secret: <b>${data.token}</b> — copy it now; it won't be shown again.`);
+        renderUsersView(container);
+    };
+
+    // Revoke token
+    container.querySelectorAll('tr[data-tid]').forEach(row => {
+        const btn = row.querySelector('.tok-revoke');
+        if (btn) btn.onclick = async () => {
+            if (!confirm('Revoke this token? Any client using it will immediately lose access.')) return;
+            const { ok, data } = await revokeToken(row.dataset.tid);
+            if (!ok) { banner(data.detail || 'Revoke failed.', false); return; }
+            renderUsersView(container);
+        };
+    });
 
     // Create
     container.querySelector('#nu-create').onclick = async () => {

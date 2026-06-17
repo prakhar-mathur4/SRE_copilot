@@ -40,6 +40,18 @@ CREATE TABLE IF NOT EXISTS sessions (
     stepped_up_until TEXT
 );
 
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id           TEXT PRIMARY KEY,
+    name         TEXT NOT NULL,
+    token_hash   TEXT UNIQUE NOT NULL,   -- sha256(raw token)
+    role         TEXT NOT NULL,
+    created_by   TEXT,
+    created_at   TEXT NOT NULL,
+    expires_at   TEXT,
+    last_used_at TEXT,
+    revoked      INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id             TEXT PRIMARY KEY,
     actor_user_id  TEXT,
@@ -52,6 +64,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_tokens_hash ON api_tokens(token_hash);
 """
 
 
