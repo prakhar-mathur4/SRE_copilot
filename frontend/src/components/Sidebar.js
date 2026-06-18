@@ -1,7 +1,7 @@
 /**
  * SIDEBAR — IQM Vertical Tabs
  */
-import { state, updateState } from '../utils/state';
+import { state, updateState, hasRole } from '../utils/state';
 
 const NAV_ITEMS = [
     {
@@ -49,7 +49,23 @@ const NAV_ITEMS = [
         label: 'Connectors & Keys',
         icon: `<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>`,
     },
+    {
+        id: 'users',
+        label: 'Users & Access',
+        icon: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>`,
+    },
 ];
+
+// Minimum role required to SEE each nav item (UI convenience; backend enforces).
+const NAV_MIN_ROLE = {
+    dashboard: 'viewer', active: 'viewer', runbooks: 'viewer', archive: 'viewer',
+    pods: 'viewer', ssl: 'viewer', chaos: 'maintainer', rules: 'maintainer',
+    settings: 'admin', users: 'admin',
+};
+
+function visibleNavItems() {
+    return NAV_ITEMS.filter(item => hasRole(NAV_MIN_ROLE[item.id] || 'viewer'));
+}
 
 export function renderSidebar() {
     const nav = document.querySelector('nav');
@@ -63,7 +79,7 @@ export function renderSidebar() {
 
         <!-- Nav list -->
         <div style="flex:1; overflow-y:auto; padding:6px 0;">
-            ${NAV_ITEMS.map(item => {
+            ${visibleNavItems().map(item => {
                 const isActive = state.view === item.id || (item.id === 'active' && state.view === 'control');
                 const showBadge = item.id === 'runbooks' && state.runbookCount != null && state.runbookCount > 0;
                 return `
@@ -103,7 +119,7 @@ export function renderSidebar() {
         </div>
     `;
 
-    NAV_ITEMS.forEach(item => {
+    visibleNavItems().forEach(item => {
         const btn = nav.querySelector(`#nav-${item.id}`);
         if (!btn) return;
 

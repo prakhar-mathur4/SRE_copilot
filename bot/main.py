@@ -3,6 +3,7 @@ Main entry point for SRE Copilot Incident Bot
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 import logging
@@ -13,6 +14,14 @@ load_dotenv()
 from bot.alert_handler import router as alert_router
 from bot.dashboard_router import router as dashboard_router
 from bot.timeline import timeline_manager
+from bot.auth import (
+    config as auth_config,
+    auth_dispatch,
+    auth_router,
+    users_router,
+    tokens_router,
+    bootstrap as auth_bootstrap,
+)
 
 # Basic logging configuration for the bot
 logging.basicConfig(
@@ -26,6 +35,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up SRE Copilot Bot...")
     from bot.providers import init_providers
     from bot.alertmanager_poller import poll_alertmanagers_loop
+    auth_bootstrap()  # init auth DB + create initial admin on first run
     init_providers()
     poller_task = asyncio.create_task(poll_alertmanagers_loop())
     yield
@@ -39,14 +49,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware — allow Next.js frontend running on any port
+# Auth middleware (added first => runs INNER, after CORS). Enforces session
+# authn, RBAC, and CSRF on every /api/v1 request. See bot/auth/middleware.py.
+app.add_middleware(BaseHTTPMiddleware, dispatch=auth_dispatch)
+
+# CORS middleware (added last => OUTERMOST, so preflight + headers wrap auth
+# responses too). Explicit allow-list — never "*" with credentials.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=auth_config.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Auth + user-management + service-account-token routers
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+app.include_router(tokens_router, prefix="/api/v1/tokens", tags=["tokens"])
 
 # Alert webhook router (Alertmanager integration)
 app.include_router(alert_router, prefix="/api/v1/alerts", tags=["alerts"])

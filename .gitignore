@@ -37,3 +37,8 @@ ssl_domains.json
 # Internal design docs — not for repo
 design.md
 to-do.md
+
+# Auth store (SQLite) — never commit local credentials DB
+auth.db
+auth.db-shm
+auth.db-wal

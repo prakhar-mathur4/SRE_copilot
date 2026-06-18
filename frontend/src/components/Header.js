@@ -2,7 +2,7 @@
  * HEADER — IQM Design
  */
 import { state } from '../utils/state';
-import { triggerAlert } from '../utils/api';
+import { triggerAlert, logout } from '../utils/api';
 
 export function renderHeader() {
     const header = document.querySelector('header');
@@ -40,11 +40,32 @@ export function renderHeader() {
                 </button>
                 <span id="refresh-countdown" style="font-size:11px; color:#999999; width:22px; text-align:center; font-variant-numeric:tabular-nums;">5s</span>
             </div>
+
+            ${state.currentUser ? `
+                <div style="width:1px; height:20px; background:#E6E6E6; margin:0 4px;"></div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; flex-direction:column; line-height:1.15; text-align:right;">
+                        <span style="font-size:12px; font-weight:600; color:#121212;">${state.currentUser.username}</span>
+                        <span style="font-size:10px; color:#999999; text-transform:capitalize;">${state.currentUser.role}</span>
+                    </div>
+                    <button id="logout-btn" title="Sign out" style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1px solid #E6E6E6; border-radius:2px; background:transparent; cursor:pointer; color:#666666; transition:background 200ms, border-color 200ms, color 200ms;"
+                        onmouseenter="this.style.background='#FFF2F2'; this.style.borderColor='#F29696'; this.style.color='#CC0909';"
+                        onmouseleave="this.style.background='transparent'; this.style.borderColor='#E6E6E6'; this.style.color='#666666';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    </button>
+                </div>
+            ` : ''}
         </div>
     `;
 
     const testBtn = header.querySelector('#fire-test-btn');
     if (testBtn) testBtn.onclick = () => showDiagnosticModal();
+
+    const logoutBtn = header.querySelector('#logout-btn');
+    if (logoutBtn) logoutBtn.onclick = async () => {
+        await logout();
+        window.location.reload();
+    };
 
     const refreshBtn = header.querySelector('#manual-refresh-btn');
     if (refreshBtn) {

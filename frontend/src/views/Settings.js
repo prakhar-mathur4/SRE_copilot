@@ -9,7 +9,13 @@ export async function renderSettingsView(container) {
 
     try {
         const data = await fetchSettings();
-        const { env, connectors } = data;
+        const { env, secrets = {}, connectors } = data;
+        // Secrets are masked by the backend — show a "configured" hint as a
+        // placeholder and only send a value when the user types a new one.
+        const secretPlaceholder = (key, fallback) => {
+            const s = secrets[key];
+            return s && s.configured ? `Configured ${s.hint} — leave blank to keep` : fallback;
+        };
 
         container.innerHTML = `
             <div class="flex flex-col gap-6 h-full max-w-5xl mx-auto px-4">
@@ -93,7 +99,7 @@ export async function renderSettingsView(container) {
                             <div class="flex flex-col gap-4">
                                 <div class="flex flex-col gap-2">
                                     <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Teams Webhook</label>
-                                    <input type="text" id="setting-teams-url" value="${env.TEAMS_WEBHOOK_URL}" class="input-modern">
+                                    <input type="text" id="setting-teams-url" value="" placeholder="${secretPlaceholder('TEAMS_WEBHOOK_URL', 'https://outlook.office.com/webhook/…')}" class="input-modern">
                                 </div>
                                 <button id="save-env-btn" class="mt-2 btn-outline w-full hover:bg-primary-600 hover:text-white transition-all">Save</button>
                                 <div id="notif-feedback" class="hidden text-xs font-mono px-3 py-2 rounded"></div>
@@ -124,7 +130,7 @@ export async function renderSettingsView(container) {
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <label class="text-[11px] font-bold text-muted uppercase tracking-widest">API Token / Password</label>
-                                    <input type="password" id="setting-conf-token" value="${env.CONFLUENCE_API_TOKEN || ''}" class="input-modern" autocomplete="off">
+                                    <input type="password" id="setting-conf-token" value="" placeholder="${secretPlaceholder('CONFLUENCE_API_TOKEN', 'API token')}" class="input-modern" autocomplete="off">
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <label class="text-[11px] font-bold text-muted uppercase tracking-widest">Root Page URL</label>
@@ -258,7 +264,8 @@ export async function renderSettingsView(container) {
         function applyProviderUI(provider) {
             const meta = providerMeta[provider];
             apiKeyLabel.textContent = meta.label;
-            apiKeyInput.value = env[meta.keyEnv] || '';
+            apiKeyInput.value = '';
+            apiKeyInput.placeholder = secretPlaceholder(meta.keyEnv, 'Enter API key');
             modelHint.textContent = `Default: ${meta.placeholder}`;
             if (!modelInput.value) modelInput.placeholder = meta.placeholder;
         }
@@ -272,12 +279,13 @@ export async function renderSettingsView(container) {
             const btn = container.querySelector('#save-ai-btn');
             const provider = providerSelect.value;
             const meta = providerMeta[provider];
+            const keyVal = apiKeyInput.value.trim();
             const payload = {
                 LLM_PROVIDER: provider,
                 LLM_MODEL:    modelInput.value.trim(),
-                [meta.keyEnv]: apiKeyInput.value.trim(),
             };
-            env[meta.keyEnv] = apiKeyInput.value.trim();
+            // Only overwrite the API key if the user actually entered a new one.
+            if (keyVal) payload[meta.keyEnv] = keyVal;
             env.LLM_PROVIDER = provider;
             env.LLM_MODEL    = modelInput.value.trim();
             setBtnState(btn, 'loading', 'Saving…');
@@ -294,9 +302,9 @@ export async function renderSettingsView(container) {
         container.querySelector('#save-env-btn').onclick = async () => {
             const btn = container.querySelector('#save-env-btn');
             setBtnState(btn, 'loading', 'Saving…');
-            const payload = {
-                TEAMS_WEBHOOK_URL: container.querySelector('#setting-teams-url').value
-            };
+            const teams = container.querySelector('#setting-teams-url').value.trim();
+            const payload = {};
+            if (teams) payload.TEAMS_WEBHOOK_URL = teams;
             try {
                 const res = await updateEnvSettings(payload);
                 showFeedback('notif-feedback', res.ok, res.ok ? 'Settings saved' : 'Save failed — check backend logs');
@@ -360,9 +368,10 @@ export async function renderSettingsView(container) {
                     CONFLUENCE_TYPE:          form.confluence_type,
                     CONFLUENCE_URL:           form.confluence_url,
                     CONFLUENCE_EMAIL:         form.confluence_email,
-                    CONFLUENCE_API_TOKEN:     form.confluence_api_token,
                     CONFLUENCE_ROOT_PAGE_URL: form.confluence_root_page_url,
                 };
+                // Only overwrite the token if the user entered a new one.
+                if (form.confluence_api_token) payload.CONFLUENCE_API_TOKEN = form.confluence_api_token;
                 const res = await updateEnvSettings(payload);
                 if (res.ok) showConfluenceFeedback(true, 'Settings saved');
                 else showConfluenceFeedback(false, 'Save failed — check backend logs');

@@ -2,7 +2,8 @@
  * INCIDENT CONTROL ROOM
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE } from '../utils/api';
+import { apiFetch, apiJson } from '../utils/api';
+import { renderError } from '../utils/ui';
 import { marked } from 'marked';
 import { openRunbookModal } from '../utils/runbookModal';
 
@@ -18,9 +19,8 @@ export async function renderControlRoomView(container) {
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     try {
-        const res = await fetch(`${API_BASE}/incidents/${state.selectedIncidentId}`, { signal: controller.signal });
+        const inc = await apiJson(`/incidents/${state.selectedIncidentId}`, { signal: controller.signal }, { silent: true });
         clearTimeout(timeout);
-        const inc = await res.json();
 
         container.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-12 grid-rows-6 gap-4 h-full min-h-0">
@@ -253,7 +253,7 @@ export async function renderControlRoomView(container) {
             if (runbookLoaded) return;
             runbookLoaded = true;
             try {
-                const res  = await fetch(`${API_BASE}/runbooks/suggest?incident_id=${encodeURIComponent(inc.incident_id)}`);
+                const res  = await apiFetch(`/runbooks/suggest?incident_id=${encodeURIComponent(inc.incident_id)}`);
                 const data = await res.json();
 
                 if (!data.configured) {
@@ -320,14 +320,9 @@ export async function renderControlRoomView(container) {
 
     } catch (e) {
         clearTimeout(timeout);
-        const isTimeout = e.name === 'AbortError';
-        container.innerHTML = `
-            <div class="p-20 text-center flex flex-col items-center gap-4">
-                <div class="text-danger-500 font-bold text-sm">
-                    ${isTimeout ? 'Request timed out — backend did not respond within 10s.' : `Connection failed: ${e.message}`}
-                </div>
-                <button id="cr-retry-btn" class="btn-primary mt-2">Retry</button>
-            </div>`;
-        container.querySelector('#cr-retry-btn').onclick = () => renderControlRoomView(container);
+        const msg = e.name === 'AbortError'
+            ? 'Request timed out — the backend did not respond within 10s.'
+            : (e.detail || 'Could not load this incident.');
+        renderError(container, msg, () => renderControlRoomView(container));
     }
 }

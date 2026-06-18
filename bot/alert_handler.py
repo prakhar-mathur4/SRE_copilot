@@ -1,8 +1,9 @@
 """
 Webhook handler for Prometheus/Alertmanager alerts.
 """
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 import logging
+from bot.auth import verify_webhook_hmac
 from bot.models import AlertmanagerPayload, AlertData
 from bot.timeline import timeline_manager
 from bot.diagnostics import collect_diagnostics
@@ -129,7 +130,7 @@ async def process_alert_background(alert: AlertData):
     await update_teams_message(incident_id, alert, "Analysis Available", rca_report, suggested_remediation or None)
 
 
-@router.post("/webhook")
+@router.post("/webhook", dependencies=[Depends(verify_webhook_hmac)])
 async def handle_alert(payload: AlertmanagerPayload, background_tasks: BackgroundTasks):
     logger.info(f"Received alert payload: status={payload.status}, alerts_count={len(payload.alerts)}")
 

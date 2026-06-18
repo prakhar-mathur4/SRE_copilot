@@ -23,6 +23,8 @@ from bot.ssl_checker import (
     check_all_domains, check_domain, get_cached_results,
 )
 from bot.llm_client import call_llm, is_llm_configured
+from bot.auth import config as auth_config
+from bot.auth.service import resolve_session
 
 logger = logging.getLogger("sre_copilot")
 router = APIRouter()
@@ -31,6 +33,15 @@ router = APIRouter()
 # WebSocket connection endpoint
 @router.websocket("/ws/alerts")
 async def websocket_endpoint(websocket: WebSocket):
+    # The HTTP auth middleware does not cover WebSocket upgrades, so authenticate
+    # the handshake here via the session cookie. Reject unauthenticated or
+    # forced-password-change sessions before accepting the connection (1008 =
+    # policy violation).
+    resolved = resolve_session(websocket.cookies.get(auth_config.cookie_name))
+    if not resolved or resolved["user"]["must_change_password"]:
+        await websocket.close(code=1008)
+        return
+
     await manager.connect(websocket)
     try:
         while True:
@@ -373,26 +384,38 @@ async def get_provider_timeseries(provider_id: str):
         logger.error(f"Error fetching time series for {provider_id}: {e}")
         return {"error": str(e)}
 
+# Secret-bearing env keys are never echoed in full — only whether they are
+# configured plus a masked last-4 (AUDIT.md P0 #3). Non-secret keys pass through.
+_SECRET_ENV_KEYS = {
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY",
+    "TEAMS_WEBHOOK_URL", "CONFLUENCE_API_TOKEN",
+}
+
+
+def _mask_secret(value: str) -> dict:
+    """Return a non-reversible descriptor for a secret value."""
+    if not value:
+        return {"configured": False, "hint": ""}
+    return {"configured": True, "hint": f"…{value[-4:]}" if len(value) >= 4 else "…"}
+
+
 @router.get("/settings")
 async def get_settings():
-    """Return environment variables and registered connectors."""
+    """Return non-secret env settings + masked descriptors for secret keys."""
     import os
+    plain_keys = {
+        "LLM_PROVIDER":             os.getenv("LLM_PROVIDER", "openai"),
+        "LLM_MODEL":                os.getenv("LLM_MODEL", ""),
+        "CONFLUENCE_TYPE":          os.getenv("CONFLUENCE_TYPE", "cloud"),
+        "CONFLUENCE_URL":           os.getenv("CONFLUENCE_URL", ""),
+        "CONFLUENCE_EMAIL":         os.getenv("CONFLUENCE_EMAIL", ""),
+        "CONFLUENCE_ROOT_PAGE_URL": os.getenv("CONFLUENCE_ROOT_PAGE_URL", ""),
+    }
+    secrets_status = {key: _mask_secret(os.getenv(key, "")) for key in _SECRET_ENV_KEYS}
     return {
-        "env": {
-            "LLM_PROVIDER":             os.getenv("LLM_PROVIDER", "openai"),
-            "LLM_MODEL":                os.getenv("LLM_MODEL", ""),
-            "OPENAI_API_KEY":           os.getenv("OPENAI_API_KEY", ""),
-            "ANTHROPIC_API_KEY":        os.getenv("ANTHROPIC_API_KEY", ""),
-            "GEMINI_API_KEY":           os.getenv("GEMINI_API_KEY", ""),
-            "GROQ_API_KEY":             os.getenv("GROQ_API_KEY", ""),
-            "TEAMS_WEBHOOK_URL":        os.getenv("TEAMS_WEBHOOK_URL", ""),
-            "CONFLUENCE_TYPE":          os.getenv("CONFLUENCE_TYPE", "cloud"),
-            "CONFLUENCE_URL":           os.getenv("CONFLUENCE_URL", ""),
-            "CONFLUENCE_EMAIL":         os.getenv("CONFLUENCE_EMAIL", ""),
-            "CONFLUENCE_API_TOKEN":     os.getenv("CONFLUENCE_API_TOKEN", ""),
-            "CONFLUENCE_ROOT_PAGE_URL": os.getenv("CONFLUENCE_ROOT_PAGE_URL", ""),
-        },
-        "connectors": await registry.list_providers()
+        "env": plain_keys,
+        "secrets": secrets_status,
+        "connectors": await registry.list_providers(),
     }
 
 

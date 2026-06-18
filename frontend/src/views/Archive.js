@@ -2,7 +2,7 @@
  * RESOLVED INCIDENTS ARCHIVE
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE, deleteIncident } from '../utils/api';
+import { apiFetch, deleteIncident } from '../utils/api';
 import { marked } from 'marked';
 
 // Severities that generate a post-mortem report on the backend
@@ -362,7 +362,7 @@ async function showReportModal(incidentId) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/incidents/${incidentId}`);
+        const res = await apiFetch(`/incidents/${incidentId}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         reportCache.set(incidentId, data.report ?? null);

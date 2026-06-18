@@ -2,11 +2,17 @@
  * CHAOS ENGINEERING CONTROL
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE, updateHealth } from '../utils/api';
+import { apiFetch, apiJson, updateHealth } from '../utils/api';
+import { renderError } from '../utils/ui';
 
 export async function renderChaosView(container) {
-    const res = await fetch(`${API_BASE}/chaos/scenarios`);
-    const scenarios = await res.json();
+    let scenarios;
+    try {
+        scenarios = await apiJson(`/chaos/scenarios`, {}, { silent: true });
+    } catch (e) {
+        renderError(container, e.detail || 'Could not load chaos scenarios.', () => renderChaosView(container));
+        return;
+    }
     updateState({ chaosScenarios: scenarios });
 
     container.innerHTML = `
@@ -117,7 +123,7 @@ export async function renderChaosView(container) {
             const id = btn.dataset.id;
             const active = btn.dataset.active === 'true';
 
-            await fetch(`${API_BASE}/chaos/trigger`, {
+            await apiFetch(`/chaos/trigger`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id, active: !active })
@@ -132,7 +138,7 @@ export async function renderChaosView(container) {
     if (abort) {
         abort.onclick = async () => {
             for (const s of scenarios.filter(sc => sc.is_active)) {
-                await fetch(`${API_BASE}/chaos/trigger`, {
+                await apiFetch(`/chaos/trigger`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ id: s.id, active: false })
