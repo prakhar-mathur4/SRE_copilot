@@ -20,6 +20,7 @@
 - 📊 **Industrial Dashboard**: Real-time cockpit showing firing alerts, cluster health, and a resource registry.
 - 🗂️ **Post-Mortem Archive**: Real-time search and filtering for resolved incidents with detailed Markdown reports.
 - 🧪 **Chaos Engineering**: Built-in failure simulation to test observability and response pipelines.
+- 🔐 **Authentication & RBAC**: Built-in login with a role ladder (Viewer → Responder → Maintainer → Admin → Owner), forced first-login password change, admin-managed users, service-account API tokens, CSRF protection, and step-up re-auth for destructive actions.
 
 ---
 
@@ -33,7 +34,8 @@
 │   ├── chaos_manager.py    # Chaos simulation engine 🆕
 │   ├── diagnostics.py      # K8s API integration logic
 │   ├── ai_analysis.py      # OpenAI GPT inference engine
-│   └── dashboard_router.py # API & WebSocket endpoints
+│   ├── dashboard_router.py # API & WebSocket endpoints
+│   └── auth/               # Authentication, RBAC, sessions & API tokens 🆕
 ├── frontend/               # Dashboard UI (Vite + Vanilla JS + Tailwind CSS)
 ├── k8s/                    # Kubernetes manifests (Deployment, Service, RBAC)
 ├── runbooks/               # Standard Operating Procedures (SOPs) for mitigation
@@ -68,15 +70,21 @@ Create a `.env` file in the root directory:
 OPENAI_API_KEY=your_key_here
 PROMETHEUS_URL=http://localhost:9090  # Optional, for VM monitoring
 MONITORED_SERVICES=nginx,python,node,uvicorn  # Optional, comma-separated local processes to monitor
+
+# Authentication (optional — sensible local-dev defaults shown)
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173  # explicit allow-list (never "*")
+COOKIE_SECURE=false           # set to true when served over HTTPS/TLS
+SESSION_TTL_HOURS=8           # sliding session lifetime
+# WEBHOOK_HMAC_SECRET=...      # set to require HMAC-signed Alertmanager webhooks
 ```
 
-### 2. Environment Setup
+### 3. Environment Setup
 ```bash
 minikube start
 eval $(minikube docker-env)
 ```
 
-### 3. Deploy to Kubernetes
+### 4. Deploy to Kubernetes
 Update `k8s/deployment.yaml` with your `OPENAI_API_KEY`, then run:
 ```bash
 docker build -t sre-copilot:local ./bot
@@ -84,12 +92,25 @@ kubectl apply -f k8s/
 kubectl rollout status deployment/sre-copilot
 ```
 
-### 4. Access the Dashboard
+### 5. Access the Dashboard
 ```bash
 # Port-forward the service
 kubectl port-forward svc/sre-copilot-svc 8000:8000
 ```
 Visit `http://localhost:8000` to view the **Industrial Command Center**.
+
+---
+
+## 🔐 Authentication & Access Control
+
+The dashboard and all API routes (except the Alertmanager webhook) require authentication.
+
+- **First run** — the bot creates an `admin` (Owner) account and prints a **one-time password** to the console and `backend.log` (`./start.sh` surfaces it too). You must change it on first login.
+- **Roles** (each inherits the one below): `Viewer` → `Responder` → `Maintainer` → `Admin` → `Owner`. Admins manage users and tokens from the **Users & Access** view.
+- **Destructive operations** (pod delete, secret writes) require **step-up re-authentication** (a password re-prompt).
+- **Automation / CI** authenticate with admin-issued **service-account tokens** via `Authorization: Bearer <token>` (CSRF-exempt; cannot perform step-up actions).
+
+> Forgot the admin password during local setup? Stop the app, delete `auth.db`, and restart — a fresh one-time password is printed. (This wipes accounts/tokens — setup only.)
 
 ---
 
