@@ -2,7 +2,7 @@
  * RESOURCE INVENTORY VIEW
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 export async function renderPodsView(container) {
     // 1. Initial Layout Render (Static Skeleton)
@@ -68,7 +68,7 @@ export async function renderPodsView(container) {
 
         try {
             const nsParam = state.podFilters.namespace === 'all' ? '' : `?namespace=${state.podFilters.namespace}`;
-            const res = await fetch(`${API_BASE}/pods${nsParam}`);
+            const res = await apiFetch(`/pods${nsParam}`);
             const pods = await res.json();
 
             const namespaces = [...new Set(pods.map(p => p.namespace))].sort();
@@ -128,7 +128,7 @@ export async function renderPodsView(container) {
             body.querySelectorAll('.delete-pod-btn').forEach(btn => {
                 btn.onclick = async () => {
                     if (confirm(`INITIATE TERMINATION: ${btn.dataset.name}?`)) {
-                        await fetch(`${API_BASE}/pods/${btn.dataset.ns}/${btn.dataset.name}`, { method: 'DELETE' });
+                        await apiFetch(`/pods/${btn.dataset.ns}/${btn.dataset.name}`, { method: 'DELETE' });
                         refreshData();
                     }
                 };
@@ -184,7 +184,7 @@ async function showYamlModal(name, ns) {
     overlay.querySelector('#close-modal-btn').onclick = close;
 
     try {
-        const res = await fetch(`${API_BASE}/pods/${ns}/${name}/yaml`);
+        const res = await apiFetch(`/pods/${ns}/${name}/yaml`);
         const data = await res.json();
         overlay.querySelector('#yaml-content').innerText = data.yaml;
     } catch (e) {

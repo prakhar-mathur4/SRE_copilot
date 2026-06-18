@@ -4,7 +4,7 @@
  * Used by both the Runbooks view and the Control Room Runbook Fix tab.
  */
 import DOMPurify from 'dompurify';
-import { API_BASE } from './api';
+import { apiFetch } from './api';
 
 const STYLE_ID = 'rb-injected-styles';
 
@@ -271,7 +271,7 @@ export function openRunbookModal(pageId, title, pageUrl) {
     modal.querySelector('#rb-close-btn').onclick = closeModal;
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
-    fetch(`${API_BASE}/runbooks/${encodeURIComponent(pageId)}`)
+    apiFetch(`/runbooks/${encodeURIComponent(pageId)}`)
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(page => {
             const authorEl = modal.querySelector('#rb-meta-author');

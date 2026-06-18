@@ -1,7 +1,7 @@
 /**
  * SSL CERTIFICATE MONITOR — compact table view
  */
-import { API_BASE } from '../utils/api';
+import { apiFetch } from '../utils/api';
 
 // Persist sort state across refreshes
 let _sortCol = null;   // 'status' | 'days' | 'expires'
@@ -47,7 +47,7 @@ function handleSort(col, container, domains) {
 export async function renderSSLView(container) {
     container.innerHTML = loadingHtml();
     try {
-        const res    = await fetch(`${API_BASE}/ssl/domains`);
+        const res    = await apiFetch(`/ssl/domains`);
         const data   = await res.json();
         const domains = data.domains || [];
         renderDashboard(container, domains);
@@ -65,7 +65,7 @@ export async function renderSSLView(container) {
 
 async function _triggerCheck(container) {
     try {
-        const res  = await fetch(`${API_BASE}/ssl/check`, { method: 'POST' });
+        const res  = await apiFetch(`/ssl/check`, { method: 'POST' });
         const data = await res.json();
         renderDashboard(container, data.results || []);
     } catch (_) {}
@@ -223,7 +223,7 @@ function renderDashboard(container, domains) {
         btn.addEventListener('click', async e => {
             e.stopPropagation();
             const { domain, port } = btn.dataset;
-            await fetch(`${API_BASE}/ssl/domains/${encodeURIComponent(domain)}?port=${port}`, { method: 'DELETE' });
+            await apiFetch(`/ssl/domains/${encodeURIComponent(domain)}?port=${port}`, { method: 'DELETE' });
             renderSSLView(container);
         })
     );
@@ -360,7 +360,7 @@ function showAddModal(container) {
         for (const line of lines) {
             try {
                 const { domain, port } = parseDomainPort(line);
-                const res = await fetch(`${API_BASE}/ssl/domains`, {
+                const res = await apiFetch(`/ssl/domains`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain, port }),
                 });
@@ -379,7 +379,7 @@ function showAddModal(container) {
         if (ok) {
             setTimeout(async () => {
                 close();
-                const res  = await fetch(`${API_BASE}/ssl/check`, { method: 'POST' });
+                const res  = await apiFetch(`/ssl/check`, { method: 'POST' });
                 const data = await res.json();
                 renderDashboard(container, data.results || []);
             }, 600);

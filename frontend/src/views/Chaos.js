@@ -2,10 +2,10 @@
  * CHAOS ENGINEERING CONTROL
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE, updateHealth } from '../utils/api';
+import { apiFetch, updateHealth } from '../utils/api';
 
 export async function renderChaosView(container) {
-    const res = await fetch(`${API_BASE}/chaos/scenarios`);
+    const res = await apiFetch(`/chaos/scenarios`);
     const scenarios = await res.json();
     updateState({ chaosScenarios: scenarios });
 
@@ -117,7 +117,7 @@ export async function renderChaosView(container) {
             const id = btn.dataset.id;
             const active = btn.dataset.active === 'true';
 
-            await fetch(`${API_BASE}/chaos/trigger`, {
+            await apiFetch(`/chaos/trigger`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id, active: !active })
@@ -132,7 +132,7 @@ export async function renderChaosView(container) {
     if (abort) {
         abort.onclick = async () => {
             for (const s of scenarios.filter(sc => sc.is_active)) {
-                await fetch(`${API_BASE}/chaos/trigger`, {
+                await apiFetch(`/chaos/trigger`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ id: s.id, active: false })

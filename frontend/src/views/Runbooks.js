@@ -1,7 +1,7 @@
 /**
  * RUNBOOKS VIEW — Confluence knowledge base browser
  */
-import { API_BASE } from '../utils/api';
+import { apiFetch } from '../utils/api';
 import { updateState } from '../utils/state';
 import { openRunbookModal, injectRunbookStyles, escHtml, escAttr } from '../utils/runbookModal';
 
@@ -10,7 +10,7 @@ export async function renderRunbooksView(container) {
     container.innerHTML = loadingHtml('Fetching runbooks from Confluence…');
 
     try {
-        const res  = await fetch(`${API_BASE}/runbooks`);
+        const res  = await apiFetch(`/runbooks`);
         const data = await res.json();
 
         if (!data.configured) {
@@ -111,7 +111,7 @@ function renderGrid(container, runbooks) {
         btn.disabled = true;
         btn.textContent = 'Syncing…';
         try {
-            const res = await fetch(`${API_BASE}/runbooks`);
+            const res = await apiFetch(`/runbooks`);
             const data = await res.json();
             if (data.configured) {
                 const runbooks = data.runbooks || [];

@@ -2,7 +2,7 @@
  * RULES & SUPPRESSION CENTER
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE, fetchFilters, addFilter, deleteFilter, fetchMaintenance, addMaintenance, deleteMaintenance, evaluateCel, fetchNoiseStats } from '../utils/api';
+import { fetchFilters, addFilter, deleteFilter, fetchMaintenance, addMaintenance, deleteMaintenance, evaluateCel, fetchNoiseStats } from '../utils/api';
 
 export async function renderRulesView(container) {
     container.innerHTML = '<div class="p-20 text-center" style="color:#666666; font-size:13px;">Loading suppression registry...</div>';

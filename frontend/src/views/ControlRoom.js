@@ -2,7 +2,7 @@
  * INCIDENT CONTROL ROOM
  */
 import { state, updateState } from '../utils/state';
-import { API_BASE } from '../utils/api';
+import { apiFetch } from '../utils/api';
 import { marked } from 'marked';
 import { openRunbookModal } from '../utils/runbookModal';
 
@@ -18,7 +18,7 @@ export async function renderControlRoomView(container) {
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     try {
-        const res = await fetch(`${API_BASE}/incidents/${state.selectedIncidentId}`, { signal: controller.signal });
+        const res = await apiFetch(`/incidents/${state.selectedIncidentId}`, { signal: controller.signal });
         clearTimeout(timeout);
         const inc = await res.json();
 
@@ -253,7 +253,7 @@ export async function renderControlRoomView(container) {
             if (runbookLoaded) return;
             runbookLoaded = true;
             try {
-                const res  = await fetch(`${API_BASE}/runbooks/suggest?incident_id=${encodeURIComponent(inc.incident_id)}`);
+                const res  = await apiFetch(`/runbooks/suggest?incident_id=${encodeURIComponent(inc.incident_id)}`);
                 const data = await res.json();
 
                 if (!data.configured) {
