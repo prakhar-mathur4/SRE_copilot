@@ -1,7 +1,8 @@
 /**
  * SSL CERTIFICATE MONITOR — compact table view
  */
-import { apiFetch } from '../utils/api';
+import { apiFetch, apiJson } from '../utils/api';
+import { renderError } from '../utils/ui';
 
 // Persist sort state across refreshes
 let _sortCol = null;   // 'status' | 'days' | 'expires'
@@ -47,8 +48,7 @@ function handleSort(col, container, domains) {
 export async function renderSSLView(container) {
     container.innerHTML = loadingHtml();
     try {
-        const res    = await apiFetch(`/ssl/domains`);
-        const data   = await res.json();
+        const data   = await apiJson(`/ssl/domains`, {}, { silent: true });
         const domains = data.domains || [];
         renderDashboard(container, domains);
 
@@ -57,9 +57,7 @@ export async function renderSSLView(container) {
             _triggerCheck(container);
         }
     } catch (e) {
-        container.innerHTML = `<div class="flex items-center justify-center h-full">
-            <div class="text-danger-500 font-bold text-sm">Failed to load: ${escHtml(e.message)}</div>
-        </div>`;
+        renderError(container, e.detail || 'Could not load SSL domains.', () => renderSSLView(container));
     }
 }
 

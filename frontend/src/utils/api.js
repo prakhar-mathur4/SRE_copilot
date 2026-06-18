@@ -9,6 +9,7 @@
  */
 import { state, updateState } from './state';
 import { promptPassword } from '../views/Auth';
+import { toast } from './toast';
 
 // Build-time configurable origin; falls back to local dev. WS scheme is derived
 // from the origin so https deployments get wss automatically.
@@ -36,7 +37,17 @@ function _doFetch(path, options) {
 }
 
 export async function apiFetch(path, options = {}) {
-    let res = await _doFetch(path, options);
+    let res;
+    try {
+        res = await _doFetch(path, options);
+    } catch (e) {
+        // Network/CORS failure — synthesize a response so callers never crash
+        // on `.ok` / `.json()`. apiJson maps this to a friendly toast.
+        return new Response(
+            JSON.stringify({ detail: 'Cannot reach the server.', code: 'network_error' }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+        );
+    }
 
     if (res.status === 401) {
         document.dispatchEvent(new CustomEvent('auth:required'));
@@ -68,8 +79,57 @@ async function _handleStepUp() {
 
 export async function stepUp(password) {
     // Use _doFetch directly so a non-step-up response can't re-trigger the prompt.
-    const res = await _doFetch('/auth/step-up', { method: 'POST', body: JSON.stringify({ password }) });
-    return res.ok;
+    try {
+        const res = await _doFetch('/auth/step-up', { method: 'POST', body: JSON.stringify({ password }) });
+        return res.ok;
+    } catch (e) {
+        return false;
+    }
+}
+
+/** Typed error thrown by apiJson on a non-OK response. */
+export class ApiError extends Error {
+    constructor(status, code, detail) {
+        super(detail || code || `HTTP ${status}`);
+        this.name = 'ApiError';
+        this.status = status;
+        this.code = code;
+        this.detail = detail;
+    }
+}
+
+function _friendlyError(status, code, detail) {
+    if (code === 'forbidden' || status === 403) return detail || "You don't have permission to do that.";
+    if (code === 'token_forbidden') return detail || 'Service-account tokens cannot perform this action.';
+    if (status === 404) return detail || 'Not found.';
+    if (code === 'network_error' || status === 503) return 'Cannot reach the server. Check your connection.';
+    if (status >= 500) return 'Something went wrong on the server. Please try again.';
+    return detail || `Request failed (${status}).`;
+}
+
+/**
+ * apiFetch + res.ok check + JSON parse. Returns parsed body (null for 204), or
+ * throws ApiError after surfacing a friendly toast. Use for user-initiated
+ * loads/mutations where failures should be visible; background polls that must
+ * stay silent keep using apiFetch directly.
+ */
+export async function apiJson(path, options = {}) {
+    const res = await apiFetch(path, options);
+    if (res.status === 204) return null;
+
+    let body = null;
+    try { body = await res.json(); } catch (_) { /* empty / non-JSON */ }
+
+    if (!res.ok) {
+        const code = body && body.code;
+        // 401 (redirect) and forced-change / step-up are handled in apiFetch —
+        // don't double-surface those.
+        if (res.status !== 401 && code !== 'password_change_required' && code !== 'step_up_required') {
+            toast(_friendlyError(res.status, code, body && body.detail), 'error');
+        }
+        throw new ApiError(res.status, code, body && body.detail);
+    }
+    return body;
 }
 
 // --------------------------------------------------------------------------- //

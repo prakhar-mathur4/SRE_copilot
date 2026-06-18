@@ -2,11 +2,17 @@
  * CHAOS ENGINEERING CONTROL
  */
 import { state, updateState } from '../utils/state';
-import { apiFetch, updateHealth } from '../utils/api';
+import { apiFetch, apiJson, updateHealth } from '../utils/api';
+import { renderError } from '../utils/ui';
 
 export async function renderChaosView(container) {
-    const res = await apiFetch(`/chaos/scenarios`);
-    const scenarios = await res.json();
+    let scenarios;
+    try {
+        scenarios = await apiJson(`/chaos/scenarios`, {}, { silent: true });
+    } catch (e) {
+        renderError(container, e.detail || 'Could not load chaos scenarios.', () => renderChaosView(container));
+        return;
+    }
     updateState({ chaosScenarios: scenarios });
 
     container.innerHTML = `

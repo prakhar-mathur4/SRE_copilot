@@ -1,7 +1,8 @@
 /**
  * RUNBOOKS VIEW — Confluence knowledge base browser
  */
-import { apiFetch } from '../utils/api';
+import { apiFetch, apiJson } from '../utils/api';
+import { renderError } from '../utils/ui';
 import { updateState } from '../utils/state';
 import { openRunbookModal, injectRunbookStyles, escHtml, escAttr } from '../utils/runbookModal';
 
@@ -10,8 +11,7 @@ export async function renderRunbooksView(container) {
     container.innerHTML = loadingHtml('Fetching runbooks from Confluence…');
 
     try {
-        const res  = await apiFetch(`/runbooks`);
-        const data = await res.json();
+        const data = await apiJson(`/runbooks`, {}, { silent: true });
 
         if (!data.configured) {
             renderUnconfigured(container);
@@ -23,11 +23,7 @@ export async function renderRunbooksView(container) {
         renderGrid(container, runbooks);
 
     } catch (e) {
-        container.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full gap-3">
-                <div class="text-danger-500 font-bold text-sm">Failed to load runbooks: ${escHtml(e.message)}</div>
-                <button onclick="location.reload()" class="btn-outline">Retry</button>
-            </div>`;
+        renderError(container, e.detail || 'Could not load runbooks.', () => renderRunbooksView(container));
     }
 }
 
