@@ -33,13 +33,17 @@ export async function renderSettingsView(container) {
                                 <div class="pane p-6 flex justify-between items-center group">
                                     <div class="flex items-center gap-4">
                                         <div class="p-3 rounded ${
-                                            c.type === 'kubernetes'   ? 'bg-info-50 text-info-500' :
-                                            c.type === 'prometheus'   ? 'bg-warning-50 text-warning-500' :
-                                            c.type === 'alertmanager' ? 'bg-danger-50 text-danger-500' :
+                                            c.type === 'kubernetes'     ? 'bg-info-50 text-info-500' :
+                                            c.type === 'prometheus'     ? 'bg-warning-50 text-warning-500' :
+                                            c.type === 'victoriametrics' ? 'bg-primary-50 text-primary-500' :
+                                            c.type === 'vmalert'        ? 'bg-warning-50 text-warning-500' :
+                                            c.type === 'alertmanager'   ? 'bg-danger-50 text-danger-500' :
                                             'bg-success-50 text-success-500'}">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${
                                                 c.type === 'kubernetes' ? '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>' :
                                                 c.type === 'prometheus' ? '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>' :
+                                                c.type === 'victoriametrics' ? '<path d="M3 3v18h18"></path><path d="m7 14 4-4 3 3 5-6"></path>' :
+                                                c.type === 'vmalert' ? '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path>' :
                                                 c.type === 'alertmanager' ? '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>' :
                                                 '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect>'
                                             }</svg>
@@ -173,6 +177,8 @@ export async function renderSettingsView(container) {
                             <select id="new-conn-type" class="input-modern">
                                 <option value="alertmanager">Alertmanager</option>
                                 <option value="prometheus">Prometheus Server</option>
+                                <option value="victoriametrics">VictoriaMetrics</option>
+                                <option value="vmalert">vmalert</option>
                                 <option value="kubernetes">Kubernetes Cluster</option>
                                 <option value="local_machine">Local Machine</option>
                             </select>
@@ -200,6 +206,8 @@ export async function renderSettingsView(container) {
         const typeHints = {
             alertmanager: { placeholder: 'http://10.0.0.5:9093', hint: 'Alertmanager base URL — alerts polled every 30s automatically.' },
             prometheus:   { placeholder: 'http://10.0.0.5:9090', hint: 'Prometheus server URL — used for metrics and diagnostics.' },
+            victoriametrics: { placeholder: 'http://10.0.0.5:8428', hint: 'VictoriaMetrics vmselect/single-node URL — Prometheus-compatible query API.' },
+            vmalert:      { placeholder: 'http://10.0.0.5:8880', hint: 'vmalert URL — firing alerts polled every 30s; pending alerts ignored.' },
             kubernetes:   { placeholder: 'my-k8s-context',       hint: 'Kubeconfig context name, or leave blank for default.' },
             local_machine:{ placeholder: 'localhost',             hint: 'Monitors this machine via psutil — URL is not used.' },
         };

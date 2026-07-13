@@ -6,8 +6,10 @@ from typing import Dict, List, Optional, Any
 from bot.providers.base import DiagnosticProvider
 from bot.providers.kubernetes_provider import KubernetesProvider
 from bot.providers.prometheus_provider import PrometheusProvider
+from bot.providers.victoriametrics_provider import VictoriaMetricsProvider
 from bot.providers.local_machine_provider import LocalMachineProvider
 from bot.providers.alertmanager_provider import AlertmanagerProvider
+from bot.providers.vmalert_provider import VMAlertProvider
 
 logger = logging.getLogger("sre_copilot")
 
@@ -47,10 +49,14 @@ class ProviderRegistry:
                         self._providers[p_id] = KubernetesProvider(context=cfg.get("url"))
                     elif p_type == "prometheus":
                         self._providers[p_id] = PrometheusProvider(prometheus_url=p_url, name=cfg.get("name"))
+                    elif p_type == "victoriametrics":
+                        self._providers[p_id] = VictoriaMetricsProvider(url=p_url, name=cfg.get("name"))
                     elif p_type == "local_machine":
                         self._providers[p_id] = LocalMachineProvider()
                     elif p_type == "alertmanager":
                         self._providers[p_id] = AlertmanagerProvider(url=p_url, name=cfg.get("name", "Alertmanager"))
+                    elif p_type == "vmalert":
+                        self._providers[p_id] = VMAlertProvider(url=p_url, name=cfg.get("name", "vmalert"))
                     
                     logger.info(f"Initialized provider: {p_id} ({p_type})")
                 except Exception as e:
@@ -73,7 +79,7 @@ class ProviderRegistry:
                     # Quick status check
                     if p.provider_type == "local_machine":
                         cfg["status"] = "online"
-                    elif p.provider_type in ("prometheus", "alertmanager"):
+                    elif p.provider_type in ("prometheus", "victoriametrics", "alertmanager", "vmalert"):
                         health = await p.get_health_metrics()
                         cfg["status"] = health["status"]
                     elif p.provider_type == "kubernetes":
@@ -106,10 +112,10 @@ class ProviderRegistry:
             for p_id, p in self._providers.items():
                 if isinstance(p, KubernetesProvider): return p
 
-        # 4. Fallback to Prometheus if instance is present
+        # 4. Fallback to a metrics backend (Prometheus / VictoriaMetrics) if instance is present
         if instance:
             for p_id, p in self._providers.items():
-                if isinstance(p, PrometheusProvider): return p
+                if isinstance(p, (PrometheusProvider, VictoriaMetricsProvider)): return p
 
         # No heuristic matched — return None so the caller can set diagnostics_failed
         # instead of silently collecting irrelevant data from the local machine

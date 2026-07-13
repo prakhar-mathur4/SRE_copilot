@@ -18,6 +18,12 @@ class NoiseReducer:
         # Active alert fingerprints (storm protection)
         self.active_fingerprints: Set[str] = set()
 
+        # fingerprint -> set of sources currently reporting it firing.
+        # Enables cross-source merge: an incident stays open until EVERY source
+        # has cleared, so resolving in one source (while another still fires)
+        # does not prematurely close the incident.
+        self._fingerprint_sources: Dict[str, Set[str]] = {}
+
         # Filtering rules
         self.filter_rules: List[FilterRule] = []
 
@@ -66,7 +72,12 @@ class NoiseReducer:
         Optionally strips ephemeral 'ignore_fields'.
         """
         if ignore_fields is None:
-            ignore_fields = ["timestamp", "request_id", "trace_id"]
+            # Source tags identify *which* connector reported the alert, not the
+            # alert itself — excluding them lets the same alert arriving from
+            # multiple sources (e.g. Alertmanager + vmalert) collapse to one
+            # fingerprint, so it is merged into a single incident.
+            ignore_fields = ["timestamp", "request_id", "trace_id",
+                             "alertmanager_source", "vmalert_source"]
             
         # Extract and sort labels to ensure deterministic hashing
         relevant_labels = {k: v for k, v in alert.labels.items() if k not in ignore_fields}
@@ -213,15 +224,32 @@ class NoiseReducer:
                 self.filter_stats[rname] = self.filter_stats.get(rname, 0) + 1
             return None
 
-        # 3. Fingerprinting & Deduplication
+        # 3. Fingerprinting & cross-source deduplication
         fingerprint = self.calculate_fingerprint(alert)
+        source = (alert.labels.get("alertmanager_source")
+                  or alert.labels.get("vmalert_source")
+                  or "unknown")
 
         if alert.status == "resolved":
+            # Only truly resolve once every source has stopped reporting it.
+            sources = self._fingerprint_sources.get(fingerprint)
+            if sources is not None:
+                sources.discard(source)
+                if sources:
+                    logger.info(
+                        f"Resolution from '{source}' held — {alert_name} still "
+                        f"firing in {sorted(sources)}"
+                    )
+                    return None  # another source still fires — keep incident open
+                del self._fingerprint_sources[fingerprint]
             self.mark_resolved(fingerprint)
-            return fingerprint  # Resolution always proceeds
+            return fingerprint  # last source cleared — resolution proceeds
 
         if self.is_duplicate(fingerprint):
-            logger.info(f"Alert dropped as duplicate (Storm Protection): {alert_name}")
+            # Already active — either a storm repeat or the SAME alert arriving
+            # from a second source. Merge: record the source, drop the duplicate.
+            self._fingerprint_sources.setdefault(fingerprint, set()).add(source)
+            logger.info(f"Alert merged/deduped (source={source}): {alert_name}")
             self.dedup_count += 1
             self._record_drop()
             detail = self.dedup_details.setdefault(fingerprint, {"alert_name": alert_name, "count": 0, "last_seen": ""})
@@ -230,6 +258,7 @@ class NoiseReducer:
             return None
 
         self.mark_active(fingerprint)
+        self._fingerprint_sources[fingerprint] = {source}
         return fingerprint
 
 # Global singleton
