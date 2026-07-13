@@ -85,10 +85,15 @@ class VictoriaMetricsProvider(DiagnosticProvider):
     (returns ``OK``) rather than Prometheus' ``/-/healthy``.
     """
 
-    def __init__(self, url: str = None, name: str = None):
+    def __init__(self, url: str = None, name: str = None, metrics_url: str = None):
         # Prefer explicit URL, then VICTORIAMETRICS_URL, then a shared metrics URL.
         resolved = url or os.getenv("VICTORIAMETRICS_URL") or os.getenv("PROMETHEUS_URL", "")
         self.vm_url = resolved.rstrip("/")
+        # Metrics can be sourced from a different backend (e.g. a reachable
+        # Prometheus) when the VM endpoint itself is not queryable — e.g. it is
+        # a vmagent, or sits behind an authenticated vmauth. All health and
+        # time-series queries target query_url; falls back to the VM URL.
+        self.query_url = (metrics_url or resolved).rstrip("/")
         self.provider_name = name or "VictoriaMetrics"
         self.provider_type = "victoriametrics"
 
@@ -96,7 +101,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
         """VM health probe: prefer /health, fall back to Prometheus-style /-/healthy."""
         for path in ("/health", "/-/healthy"):
             try:
-                res = await client.get(f"{self.vm_url}{path}")
+                res = await client.get(f"{self.query_url}{path}")
                 if res.status_code == 200:
                     return True
             except Exception:
@@ -105,7 +110,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
 
     async def get_health_metrics(self) -> Dict[str, Any]:
         """Check VictoriaMetrics health and fetch real CPU/memory metrics."""
-        if not self.vm_url:
+        if not self.query_url:
             return {"status": "offline", "name": self.provider_name, "error": "VICTORIAMETRICS_URL not configured"}
 
         try:
@@ -117,14 +122,14 @@ class VictoriaMetricsProvider(DiagnosticProvider):
                 mem_usage = 0
 
                 query_cpu = '100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
-                r_cpu = await client.get(f"{self.vm_url}/api/v1/query", params={"query": query_cpu})
+                r_cpu = await client.get(f"{self.query_url}/api/v1/query", params={"query": query_cpu})
                 if r_cpu.status_code == 200:
                     results = r_cpu.json().get("data", {}).get("result", [])
                     if results:
                         cpu_usage = round(float(results[0]["value"][1]))
 
                 query_mem = '(1 - (sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes))) * 100'
-                r_mem = await client.get(f"{self.vm_url}/api/v1/query", params={"query": query_mem})
+                r_mem = await client.get(f"{self.query_url}/api/v1/query", params={"query": query_mem})
                 if r_mem.status_code == 200:
                     results = r_mem.json().get("data", {}).get("result", [])
                     if results:
@@ -139,7 +144,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
                     "nodes_total": 1,
                 }
         except Exception as e:
-            logger.error(f"VictoriaMetrics unreachable at {self.vm_url}: {e}")
+            logger.error(f"VictoriaMetrics unreachable at {self.query_url}: {e}")
 
         return {"status": "offline", "name": self.provider_name, "error": "Connection timed out"}
 
@@ -149,7 +154,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
         Returns a markdown string only when the exact instance is found in VM.
         Returns "" in all other cases — callers treat that as telemetry unavailable.
         """
-        if not self.vm_url:
+        if not self.query_url:
             return ""
 
         # Only a concrete instance label is meaningful — everything else is ambiguous
@@ -207,19 +212,19 @@ class VictoriaMetricsProvider(DiagnosticProvider):
                     lines.append(f"  `{query}`")
 
         except httpx.ConnectError:
-            logger.error(f"VictoriaMetrics unreachable at {self.vm_url}")
+            logger.error(f"VictoriaMetrics unreachable at {self.query_url}")
             return ""
         except Exception as e:
             logger.error(f"VictoriaMetrics diagnostic query failed: {e}")
             return ""
 
-        lines.append(f"\n*Source: {self.vm_url}*")
+        lines.append(f"\n*Source: {self.query_url}*")
         return "\n".join(lines)
 
     async def _instant_query(self, client: httpx.AsyncClient, query: str) -> List[Dict]:
         """Execute a single instant query; returns result list or []."""
         try:
-            r = await client.get(f"{self.vm_url}/api/v1/query", params={"query": query})
+            r = await client.get(f"{self.query_url}/api/v1/query", params={"query": query})
             if r.status_code == 200:
                 return r.json().get("data", {}).get("result", [])
         except Exception:
@@ -253,7 +258,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
 
     async def get_time_series(self) -> Dict[str, Any]:
         """Fetch 2 hours of historical CPU and Memory data."""
-        if not self.vm_url:
+        if not self.query_url:
             return {"error": "VictoriaMetrics URL not configured"}
 
         end_time = int(time.time())
@@ -266,7 +271,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 query_cpu = '100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
-                res_cpu = await client.get(f"{self.vm_url}/api/v1/query_range", params={
+                res_cpu = await client.get(f"{self.query_url}/api/v1/query_range", params={
                     "query": query_cpu,
                     "start": start_time,
                     "end": end_time,
@@ -278,7 +283,7 @@ class VictoriaMetricsProvider(DiagnosticProvider):
                         cpu_history = [(int(v[0]), float(v[1])) for v in data[0]["values"]]
 
                 query_mem = '(1 - (avg by (instance) (node_memory_MemAvailable_bytes) / avg by (instance) (node_memory_MemTotal_bytes))) * 100'
-                res_mem = await client.get(f"{self.vm_url}/api/v1/query_range", params={
+                res_mem = await client.get(f"{self.query_url}/api/v1/query_range", params={
                     "query": query_mem,
                     "start": start_time,
                     "end": end_time,

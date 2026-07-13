@@ -50,7 +50,7 @@ class ProviderRegistry:
                     elif p_type == "prometheus":
                         self._providers[p_id] = PrometheusProvider(prometheus_url=p_url, name=cfg.get("name"))
                     elif p_type == "victoriametrics":
-                        self._providers[p_id] = VictoriaMetricsProvider(url=p_url, name=cfg.get("name"))
+                        self._providers[p_id] = VictoriaMetricsProvider(url=p_url, name=cfg.get("name"), metrics_url=cfg.get("metrics_url"))
                     elif p_type == "local_machine":
                         self._providers[p_id] = LocalMachineProvider()
                     elif p_type == "alertmanager":
